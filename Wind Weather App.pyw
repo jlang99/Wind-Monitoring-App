@@ -66,10 +66,6 @@ def get_wind_speed(site, station, gridx, gridy):
     if weather_data_response.status_code == 200:
         weather_data = weather_data_response.json()
         periods = weather_data['properties']['periods']
-
-        if site == "Bluebird":
-            formatted_weather_data = json.dumps(weather_data, indent=4)
-            print(site, ' | ', formatted_weather_data)
         
         for i, period in enumerate(periods[:4], start=1):
             speed = re.search(r'(\d+) mph', period['windSpeed']).group(1)
@@ -94,21 +90,23 @@ def get_wind_speed(site, station, gridx, gridy):
 
 
 def update_gui(site, var):
-        globals()[f'{var}lblwind'].config(text= f"Wind:  {wind_speed_dict[site][0]} | {wind_speed_dict[site][1]} | {wind_speed_dict[site][2]} | {wind_speed_dict[site][3]}")
-        if wind_speed_dict[site][0] != "N/A":
-            if int(wind_speed_dict[site][0]) >= stowspd or int(wind_speed_dict[site][1]) >= stowspd:
-                globals()[f'{var}'].config(bg='red')
-                globals()[f'{var}lbl'].config(bg='red')
-                globals()[f'{var}lblwind'].config(bg='red')
-            elif (warningspdlower <= int(wind_speed_dict[site][0]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][1]) <= warningspdupper):
-                globals()[f'{var}'].config(bg='orange')
-                globals()[f'{var}lbl'].config(bg='orange')
-                globals()[f'{var}lblwind'].config(bg='orange')
-            else:
-                globals()[f'{var}'].config(bg='green')
-                globals()[f'{var}lbl'].config(bg='green')
-                globals()[f'{var}lblwind'].config(bg='green')
+        if wind_speed_dict[site][0] == "N/A":
+            return #Avoids overwriting a successful data pull with N/A
+        globals()[f'{var}curspd'].config(text=wind_speed_dict[site][0])
+        globals()[f'{var}nxtspd'].config(text=wind_speed_dict[site][1])
+        globals()[f'{var}3rdspd'].config(text=wind_speed_dict[site][2])
+        globals()[f'{var}finalspd'].config(text=wind_speed_dict[site][3])
+        if int(wind_speed_dict[site][0]) >= stowspd or int(wind_speed_dict[site][1]) >= stowspd:
+            bg_color = 'red'
+        elif (warningspdlower <= int(wind_speed_dict[site][0]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][1]) <= warningspdupper):
+            bg_color = 'orange'
+        elif (warningspdlower <= int(wind_speed_dict[site][2]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][3]) <= warningspdupper):
+            bg_color = 'yellow'
+        else:
+            bg_color = 'green'
 
+        for label_suffix in ['', 'data', 'lbl', 'lblwind', 'curspd', 'nxtspd', '3rdspd', 'finalspd']:
+            globals()[f'{var}{label_suffix}'].config(bg=bg_color)
 
 def get_data_then_update_gui():
     globals()['wind_speed_dict'] = {}
@@ -155,37 +153,48 @@ for site, var, station, gridx, gridy, localx, localy in sites:
 
 def legend_notes():
     messagebox.showinfo(parent=legend, title= "Legend Notes", message="""Column 1: Represents the Current time block; Morning, Afternoon, Night; of the Current day
-Column 2: Represents the Next time block; Afternoon, Night, Morning of the next day if Column 1 is Night
-Column 3: Represents the Morning of the next day unless Column 1 is Night, then it is Afternoon of the next Day
+Columns 2, 3 & 4: Represent the Next time block; Afternoon, Night, Morning of the next day if the previous is Night
 Data Pulled From:
-https://wind.willyweather.com/""")
+https://api.weather.gov/""")
 
 
-
-legend = LabelFrame(root)
-legend.place(x=1640, y=280)
-legendtitle = Label(legend, text="Legend | Units in Mph\nRed = Stow Site | Orange = Stow Almost Required")
-legendtitle.grid(column= 0, row= 0, columnspan=2)
+dataFrame = Frame(root)
+legend = LabelFrame(dataFrame)
+legend.pack()
+dataFrame.place(x=1685, y=110)
+legendtitle = Label(legend, text=f"Legend | Units in Mph\nRed = Stow Site\nOrange = {warningspdlower}+ Mph\nYellow = Tomorrow, {warningspdlower}+ Mph")
+legendtitle.pack()
 legend1 = Button(legend, text="Learn What Time the Columns Represent", command=legend_notes, bg='light green')
-legend1.grid(column= 0, row= 1, columnspan=2)
+legend1.pack(fill='x')
 
-index = 2
+
 for site, var, station, gridx, gridy, localx, localy in sites:
-    globals()[f'{var}legend'] = Label(legend, text=site)
-    globals()[f'{var}legend'].grid(row= index, column= 0, sticky=W)
-    globals()[f'{var}lblwind'] = Label(legend, text= "Wind: ")
-    globals()[f'{var}lblwind'].grid(row= index, column= 1, sticky=W)
-    index += 1
+    globals()[f'{var}data'] = LabelFrame(dataFrame)
+    globals()[f'{var}data'].pack(anchor=W, fill= 'x')
+    globals()[f'{var}data'].columnconfigure(0, weight=1)
+    globals()[f'{var}data'].columnconfigure(1, weight=2)
 
+    globals()[f'{var}legend'] = Label(globals()[f'{var}data'], text=site)
+    globals()[f'{var}legend'].grid(row= 0, column= 0, sticky=W)
+    globals()[f'{var}lblwind'] = Label(globals()[f'{var}data'], text= "Wind Speed: ")
+    globals()[f'{var}lblwind'].grid(row= 0, column= 1, sticky=E)
+    globals()[f'{var}curspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}curspd'].grid(row= 0, column= 2, sticky=E)
+    globals()[f'{var}nxtspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}nxtspd'].grid(row= 0, column= 3, sticky=E)
+    globals()[f'{var}3rdspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}3rdspd'].grid(row= 0, column= 4, sticky=E)
+    globals()[f'{var}finalspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}finalspd'].grid(row= 0, column= 5, sticky=E)
 
 
 #TimeStamps
 updated = Label(legend, text= "Time Stamps Displayed Here")
-updated.grid(row=index+1, column= 0, columnspan=2)
+updated.pack()
 
 #Update Button
 update_butt = Button(legend, text="Update Wind Data Now", command= lambda: get_data_then_update_gui(), bg='light green')
-update_butt.grid(row=index+2, column=0, columnspan=2)
+update_butt.pack(fill='x')
 
 
 
