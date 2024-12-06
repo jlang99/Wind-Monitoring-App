@@ -59,7 +59,7 @@ def make_windapi_request(office, gridX, gridY):
     return requests.get(url, headers=headers) 
 
 def get_wind_speed(site, station, gridx, gridy):
-    spd1 = spd2 = spd3 = spd4 = None
+    gust1 = gust2 = gust3 = gust4 = spd1 = spd2 = spd3 = spd4 = None
     weather_data_response = make_windapi_request(station, gridx, gridy)
     if weather_data_response.status_code == 200:
         weather_data = weather_data_response.json()
