@@ -44,8 +44,6 @@ sites = [('Bishopville II', 'bishopvilleII', 'CAE', 93, 73, 950, 425),
         ('Whitehall', 'whitehall', 'ILM', 18, 51, 1030, 440), 
         ('Whitetail', 'whitetail', 'ILM', 35, 69, 1150, 350)]
 
-counties = [("nc", "surry"), ("nc", "cleveland"), ("nc", "cabarrus"), ("nc", "guilford"), ("nc", "randolph"), ("nc", "scotland"), ("nc", "hoke"), ("nc", "robeson"), ("nc", "sampson"), ("nc", "duplin"), ("nc", "lenoir"), ("nc", "greene"), ("nc", "wayne"), ("nc", "johnston"), ("nc", "edgecombe"), ("sc", "lee"), ("sc", "anderson"), ("sc", "chesterfield"), ("sc", "marlboro"), ("sc", "marion"), ("sc", "darlington"), ("sc", "dillon"), ("sc", "williamsburg"), ("sc", "allendale"), ("ga", "upson"), ("ga", "richmond"), ("ga", "bulloch")]
-
 warningspdlower = 20
 warningspdupper = 29
 
@@ -68,44 +66,66 @@ def get_wind_speed(site, station, gridx, gridy):
         periods = weather_data['properties']['periods']
         
         for i, period in enumerate(periods[:4], start=1):
-            speed = re.search(r'(\d+) mph', period['windSpeed']).group(1)
+            speed_match = re.search(r'(\d+) mph', period['windSpeed'])
+            gust_match = re.search(r'gusts as high as (\d+) mph', period['detailedForecast'])
+            if speed_match:
+                speed = speed_match.group(1)
+            else:
+                speed = "N/A"
+
+            if gust_match:
+                gust = gust_match.group(1)
+            else:
+                gust = 0
+
             if i == 1:
                 spd1 = speed
+                gust1 = gust
             elif i == 2:
                 spd2 = speed
+                gust2 = gust
+
             elif i == 3:
+                gust3 = gust
                 spd3 = speed
             elif i == 4:
                 spd4 = speed
+                gust4 = gust
 
     else:
         spd1 = "N/A"
         spd2 = "N/A"
         spd3 = "N/A"
         spd4 = "N/A"
-        
+        gust1 = "N/A"
+        gust2 = "N/A"
+        gust3 = "N/A"
+        gust4 = "N/A"
   
-    wind_speed_dict[site] = [spd1, spd2, spd3, spd4]
+    wind_speed_dict[site] = [spd1, spd2, spd3, spd4, gust1, gust2, gust3, gust4]
 
 
 
 def update_gui(site, var):
-        if wind_speed_dict[site][0] == "N/A":
-            return #Avoids overwriting a successful data pull with N/A
-        globals()[f'{var}curspd'].config(text=wind_speed_dict[site][0])
-        globals()[f'{var}nxtspd'].config(text=wind_speed_dict[site][1])
-        globals()[f'{var}3rdspd'].config(text=wind_speed_dict[site][2])
-        globals()[f'{var}finalspd'].config(text=wind_speed_dict[site][3])
-        if int(wind_speed_dict[site][0]) >= stowspd or int(wind_speed_dict[site][1]) >= stowspd:
+        if wind_speed_dict[site][0] != "N/A": #Avoids overwriting a successful data pull with N/A
+            globals()[f'{var}curspd'].config(text=wind_speed_dict[site][0])
+            globals()[f'{var}nxtspd'].config(text=wind_speed_dict[site][1])
+            globals()[f'{var}3rdspd'].config(text=wind_speed_dict[site][2])
+            globals()[f'{var}finalspd'].config(text=wind_speed_dict[site][3])
+        globals()[f'{var}gcurspd'].config(text=wind_speed_dict[site][4])
+        globals()[f'{var}gnxtspd'].config(text=wind_speed_dict[site][5])
+        globals()[f'{var}g3rdspd'].config(text=wind_speed_dict[site][6])
+        globals()[f'{var}gfinalspd'].config(text=wind_speed_dict[site][7])
+        if int(wind_speed_dict[site][0]) >= stowspd or int(wind_speed_dict[site][1]) >= stowspd or int(wind_speed_dict[site][4]) >= stowspd or int(wind_speed_dict[site][5]) >= stowspd:
             bg_color = 'red'
-        elif (warningspdlower <= int(wind_speed_dict[site][0]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][1]) <= warningspdupper):
+        elif (warningspdlower <= int(wind_speed_dict[site][0]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][1]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][4]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][5]) <= warningspdupper):
             bg_color = 'orange'
-        elif (warningspdlower <= int(wind_speed_dict[site][2]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][3]) <= warningspdupper):
+        elif (warningspdlower <= int(wind_speed_dict[site][2]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][3]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][6]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][7]) <= warningspdupper):
             bg_color = 'yellow'
         else:
             bg_color = 'green'
 
-        for label_suffix in ['', 'data', 'lbl', 'lblwind', 'curspd', 'nxtspd', '3rdspd', 'finalspd']:
+        for label_suffix in ['', 'data', 'lbl', 'lblwind', 'curspd', 'nxtspd', '3rdspd', 'finalspd', 'gcurspd', 'gnxtspd', 'g3rdspd', 'gfinalspd', 'lblgust']:
             globals()[f'{var}{label_suffix}'].config(bg=bg_color)
 
 def get_data_then_update_gui():
@@ -158,25 +178,39 @@ Data Pulled From:
 https://api.weather.gov/""")
 
 
-dataFrame = Frame(root)
-legend = LabelFrame(dataFrame)
-legend.pack()
-dataFrame.place(x=1685, y=110)
+dataFrame1 = Frame(root)
+dataFrame1.place(x=1745, y=350)
+
+dataFrame2 = Frame(root)
+dataFrame2.place(x=1570, y=350)
+
+dataFrame3 = Frame(root)
+dataFrame3.place(x=1420, y=442)
+
+legend = LabelFrame(root)
+legend.place(x=1630, y=200)
+
 legendtitle = Label(legend, text=f"Legend | Units in Mph\nRed = Stow Site\nOrange = {warningspdlower}+ Mph\nYellow = Tomorrow, {warningspdlower}+ Mph")
 legendtitle.pack()
 legend1 = Button(legend, text="Learn What Time the Columns Represent", command=legend_notes, bg='light green')
 legend1.pack(fill='x')
 
-
+count=0
 for site, var, station, gridx, gridy, localx, localy in sites:
-    globals()[f'{var}data'] = LabelFrame(dataFrame)
+    if count < 15:
+        parent_frame = dataFrame1
+    elif count < 30:
+        parent_frame = dataFrame2
+    else:
+        parent_frame = dataFrame3
+    globals()[f'{var}data'] = LabelFrame(parent_frame)
     globals()[f'{var}data'].pack(anchor=W, fill= 'x')
     globals()[f'{var}data'].columnconfigure(0, weight=1)
     globals()[f'{var}data'].columnconfigure(1, weight=2)
 
     globals()[f'{var}legend'] = Label(globals()[f'{var}data'], text=site)
     globals()[f'{var}legend'].grid(row= 0, column= 0, sticky=W)
-    globals()[f'{var}lblwind'] = Label(globals()[f'{var}data'], text= "Wind Speed: ")
+    globals()[f'{var}lblwind'] = Label(globals()[f'{var}data'], text= "Wind: ")
     globals()[f'{var}lblwind'].grid(row= 0, column= 1, sticky=E)
     globals()[f'{var}curspd'] = Label(globals()[f'{var}data'], text= "N/A")
     globals()[f'{var}curspd'].grid(row= 0, column= 2, sticky=E)
@@ -187,6 +221,17 @@ for site, var, station, gridx, gridy, localx, localy in sites:
     globals()[f'{var}finalspd'] = Label(globals()[f'{var}data'], text= "N/A")
     globals()[f'{var}finalspd'].grid(row= 0, column= 5, sticky=E)
 
+    globals()[f'{var}lblgust'] = Label(globals()[f'{var}data'], text= "Gust: ")
+    globals()[f'{var}lblgust'].grid(row= 1, column= 1, sticky=E)
+    globals()[f'{var}gcurspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}gcurspd'].grid(row= 1, column= 2, sticky=E)
+    globals()[f'{var}gnxtspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}gnxtspd'].grid(row= 1, column= 3, sticky=E)
+    globals()[f'{var}g3rdspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}g3rdspd'].grid(row= 1, column= 4, sticky=E)
+    globals()[f'{var}gfinalspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}gfinalspd'].grid(row= 1, column= 5, sticky=E)
+    count+=1
 
 #TimeStamps
 updated = Label(legend, text= "Time Stamps Displayed Here")
