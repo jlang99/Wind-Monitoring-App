@@ -138,7 +138,7 @@ def get_data_then_update_gui():
     update_time = dt.datetime.now() + dt.timedelta(minutes=30)
     update_t = update_time.strftime("%H:%M")
     timenow = dt.datetime.now().strftime("%H:%M")
-    updated.config(text=f"Updated: {timenow}, Next: {update_t}")
+    globals()['updated'].config(text=f"Updated: {timenow} | Next: {update_t}")
     print("Updating in 30 Minutes...", update_t)
     root.after(1800000, get_data_then_update_gui)
 
@@ -178,13 +178,13 @@ https://api.weather.gov/""")
 
 
 dataFrame1 = Frame(root)
-dataFrame1.place(x=1737, y=350)
+dataFrame1.place(x=1733, y=350)
 
 dataFrame2 = Frame(root)
-dataFrame2.place(x=1553, y=350)
+dataFrame2.place(x=1546, y=350)
 
 dataFrame3 = Frame(root)
-dataFrame3.place(x=1403, y=442)
+dataFrame3.place(x=1380, y=488)
 
 legend = LabelFrame(root)
 legend.place(x=1630, y=200)
@@ -193,6 +193,15 @@ legendtitle = Label(legend, text=f"Legend | Units in Mph\nRed = Stow Site\nOrang
 legendtitle.pack()
 legend1 = Button(legend, text="Learn What Time the Columns Represent", command=legend_notes, bg='light green')
 legend1.pack(fill='x')
+#TimeStamps
+updated = Label(legend, text= "Time Stamps Displayed Here")
+updated.pack()
+#Update Button
+update_butt = Button(legend, text="Update Wind Data Now", command= lambda: get_data_then_update_gui(), bg='light green')
+update_butt.pack(fill='x')
+
+
+
 
 count=0
 for site, var, station, gridx, gridy, localx, localy in sites:
@@ -231,15 +240,6 @@ for site, var, station, gridx, gridy, localx, localy in sites:
     globals()[f'{var}gfinalspd'] = Label(globals()[f'{var}data'], text= "N/A")
     globals()[f'{var}gfinalspd'].grid(row= 1, column= 5, sticky=E)
     count+=1
-
-#TimeStamps
-updated = Label(legend, text= "Time Stamps Displayed Here")
-updated.pack()
-
-#Update Button
-update_butt = Button(legend, text="Update Wind Data Now", command= lambda: get_data_then_update_gui(), bg='light green')
-update_butt.pack(fill='x')
-
 
 
 get_data_then_update_gui()  
