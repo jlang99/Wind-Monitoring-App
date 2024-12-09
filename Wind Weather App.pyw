@@ -72,7 +72,6 @@ def get_wind_speed(site, station, gridx, gridy):
                 speed = speed_match.group(1)
             else:
                 speed = "N/A"
-
             if gust_match:
                 gust = gust_match.group(1)
             else:
@@ -112,10 +111,10 @@ def update_gui(site, var):
             globals()[f'{var}nxtspd'].config(text=wind_speed_dict[site][1])
             globals()[f'{var}3rdspd'].config(text=wind_speed_dict[site][2])
             globals()[f'{var}finalspd'].config(text=wind_speed_dict[site][3])
-        globals()[f'{var}gcurspd'].config(text=wind_speed_dict[site][4])
-        globals()[f'{var}gnxtspd'].config(text=wind_speed_dict[site][5])
-        globals()[f'{var}g3rdspd'].config(text=wind_speed_dict[site][6])
-        globals()[f'{var}gfinalspd'].config(text=wind_speed_dict[site][7])
+            globals()[f'{var}gcurspd'].config(text=wind_speed_dict[site][4])
+            globals()[f'{var}gnxtspd'].config(text=wind_speed_dict[site][5])
+            globals()[f'{var}g3rdspd'].config(text=wind_speed_dict[site][6])
+            globals()[f'{var}gfinalspd'].config(text=wind_speed_dict[site][7])
         if int(wind_speed_dict[site][0]) >= stowspd or int(wind_speed_dict[site][1]) >= stowspd or int(wind_speed_dict[site][4]) >= stowspd or int(wind_speed_dict[site][5]) >= stowspd:
             bg_color = 'red'
         elif (warningspdlower <= int(wind_speed_dict[site][0]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][1]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][4]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][5]) <= warningspdupper):
@@ -179,13 +178,13 @@ https://api.weather.gov/""")
 
 
 dataFrame1 = Frame(root)
-dataFrame1.place(x=1745, y=350)
+dataFrame1.place(x=1737, y=350)
 
 dataFrame2 = Frame(root)
-dataFrame2.place(x=1570, y=350)
+dataFrame2.place(x=1553, y=350)
 
 dataFrame3 = Frame(root)
-dataFrame3.place(x=1420, y=442)
+dataFrame3.place(x=1403, y=442)
 
 legend = LabelFrame(root)
 legend.place(x=1630, y=200)
@@ -209,7 +208,7 @@ for site, var, station, gridx, gridy, localx, localy in sites:
     globals()[f'{var}data'].columnconfigure(1, weight=2)
 
     globals()[f'{var}legend'] = Label(globals()[f'{var}data'], text=site)
-    globals()[f'{var}legend'].grid(row= 0, column= 0, sticky=W)
+    globals()[f'{var}legend'].grid(row= 0, column= 0, sticky=W, rowspan=2)
     globals()[f'{var}lblwind'] = Label(globals()[f'{var}data'], text= "Wind: ")
     globals()[f'{var}lblwind'].grid(row= 0, column= 1, sticky=E)
     globals()[f'{var}curspd'] = Label(globals()[f'{var}data'], text= "N/A")
