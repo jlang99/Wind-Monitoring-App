@@ -115,17 +115,17 @@ def update_gui(site, var):
             globals()[f'{var}gnxtspd'].config(text=wind_speed_dict[site][5])
             globals()[f'{var}g3rdspd'].config(text=wind_speed_dict[site][6])
             globals()[f'{var}gfinalspd'].config(text=wind_speed_dict[site][7])
-        if int(wind_speed_dict[site][0]) >= stowspd or int(wind_speed_dict[site][1]) >= stowspd or int(wind_speed_dict[site][4]) >= stowspd or int(wind_speed_dict[site][5]) >= stowspd:
-            bg_color = 'red'
-        elif (warningspdlower <= int(wind_speed_dict[site][0]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][1]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][4]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][5]) <= warningspdupper):
-            bg_color = 'orange'
-        elif (warningspdlower <= int(wind_speed_dict[site][2]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][3]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][6]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][7]) <= warningspdupper):
-            bg_color = 'yellow'
-        else:
-            bg_color = 'green'
+            if int(wind_speed_dict[site][0]) >= stowspd or int(wind_speed_dict[site][1]) >= stowspd or int(wind_speed_dict[site][4]) >= stowspd or int(wind_speed_dict[site][5]) >= stowspd:
+                bg_color = 'red'
+            elif (warningspdlower <= int(wind_speed_dict[site][0]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][1]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][4]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][5]) <= warningspdupper):
+                bg_color = 'orange'
+            elif (warningspdlower <= int(wind_speed_dict[site][2]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][3]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][6]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][7]) <= warningspdupper):
+                bg_color = 'yellow'
+            else:
+                bg_color = 'green'
 
-        for label_suffix in ['', 'data', 'lbl', 'lblwind', 'curspd', 'nxtspd', '3rdspd', 'finalspd', 'gcurspd', 'gnxtspd', 'g3rdspd', 'gfinalspd', 'lblgust']:
-            globals()[f'{var}{label_suffix}'].config(bg=bg_color)
+            for label_suffix in ['', 'data', 'lbl', 'lblwind', 'curspd', 'nxtspd', '3rdspd', 'finalspd', 'gcurspd', 'gnxtspd', 'g3rdspd', 'gfinalspd', 'lblgust']:
+                globals()[f'{var}{label_suffix}'].config(bg=bg_color)
 
 def get_data_then_update_gui():
     globals()['wind_speed_dict'] = {}
