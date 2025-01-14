@@ -178,18 +178,18 @@ https://api.weather.gov/""")
 
 
 dataFrame1 = Frame(root)
-dataFrame1.place(x=1733, y=350)
+dataFrame1.place(x=1720, y=490)
 
 dataFrame2 = Frame(root)
-dataFrame2.place(x=1546, y=350)
+dataFrame2.place(x=1518, y=490)
 
 dataFrame3 = Frame(root)
-dataFrame3.place(x=1380, y=488)
+dataFrame3.place(x=1316, y=490)
 
 legend = LabelFrame(root)
-legend.place(x=1630, y=200)
+legend.place(x=1630, y=340)
 
-legendtitle = Label(legend, text=f"Legend | Units in Mph\nRed = Stow Site\nOrange = {warningspdlower}+ Mph\nYellow = Tomorrow, {warningspdlower}+ Mph")
+legendtitle = Label(legend, text=f"Legend | Units in Mph\nRed = {stowspd}+ Mph Stow Site\nOrange = {warningspdlower}+ Mph\nYellow = Tomorrow, {warningspdlower}+ Mph")
 legendtitle.pack()
 legend1 = Button(legend, text="Learn What Time the Columns Represent", command=legend_notes, bg='light green')
 legend1.pack(fill='x')
@@ -202,12 +202,12 @@ update_butt.pack(fill='x')
 
 
 
-
+spd_wdth = 2
 count=0
 for site, var, station, gridx, gridy, localx, localy in sites:
-    if count < 15:
+    if count < 12:
         parent_frame = dataFrame1
-    elif count < 30:
+    elif count < 24:
         parent_frame = dataFrame2
     else:
         parent_frame = dataFrame3
@@ -220,24 +220,24 @@ for site, var, station, gridx, gridy, localx, localy in sites:
     globals()[f'{var}legend'].grid(row= 0, column= 0, sticky=W, rowspan=2)
     globals()[f'{var}lblwind'] = Label(globals()[f'{var}data'], text= "Wind: ")
     globals()[f'{var}lblwind'].grid(row= 0, column= 1, sticky=E)
-    globals()[f'{var}curspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}curspd'] = Label(globals()[f'{var}data'], text= "N/A", width=spd_wdth)
     globals()[f'{var}curspd'].grid(row= 0, column= 2, sticky=E)
-    globals()[f'{var}nxtspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}nxtspd'] = Label(globals()[f'{var}data'], text= "N/A", width=spd_wdth)
     globals()[f'{var}nxtspd'].grid(row= 0, column= 3, sticky=E)
-    globals()[f'{var}3rdspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}3rdspd'] = Label(globals()[f'{var}data'], text= "N/A", width=spd_wdth)
     globals()[f'{var}3rdspd'].grid(row= 0, column= 4, sticky=E)
-    globals()[f'{var}finalspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}finalspd'] = Label(globals()[f'{var}data'], text= "N/A", width=spd_wdth)
     globals()[f'{var}finalspd'].grid(row= 0, column= 5, sticky=E)
 
     globals()[f'{var}lblgust'] = Label(globals()[f'{var}data'], text= "Gust: ")
     globals()[f'{var}lblgust'].grid(row= 1, column= 1, sticky=E)
-    globals()[f'{var}gcurspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}gcurspd'] = Label(globals()[f'{var}data'], text= "N/A", width=spd_wdth)
     globals()[f'{var}gcurspd'].grid(row= 1, column= 2, sticky=E)
-    globals()[f'{var}gnxtspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}gnxtspd'] = Label(globals()[f'{var}data'], text= "N/A", width=spd_wdth)
     globals()[f'{var}gnxtspd'].grid(row= 1, column= 3, sticky=E)
-    globals()[f'{var}g3rdspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}g3rdspd'] = Label(globals()[f'{var}data'], text= "N/A", width=spd_wdth)
     globals()[f'{var}g3rdspd'].grid(row= 1, column= 4, sticky=E)
-    globals()[f'{var}gfinalspd'] = Label(globals()[f'{var}data'], text= "N/A")
+    globals()[f'{var}gfinalspd'] = Label(globals()[f'{var}data'], text= "N/A", width=spd_wdth)
     globals()[f'{var}gfinalspd'].grid(row= 1, column= 5, sticky=E)
     count+=1
 
