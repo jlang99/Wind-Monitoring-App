@@ -44,10 +44,13 @@ sites = [('Bishopville II', 'bishopvilleII', 'CAE', 93, 73, 950, 425),
         ('Whitehall', 'whitehall', 'ILM', 18, 51, 1030, 440), 
         ('Whitetail', 'whitetail', 'ILM', 35, 69, 1150, 350)]
 
-warningspdlower = 20
+warningspdlower = 25
 warningspdupper = 29
+gustwarninglow = 30
+gustwarningup = 34
 
 stowspd = 30
+guststowspd = 35
 
 wind_speed_dict = {}
 
@@ -61,6 +64,7 @@ def make_windapi_request(office, gridX, gridY):
 def get_wind_speed(site, station, gridx, gridy):
     gust1 = gust2 = gust3 = gust4 = spd1 = spd2 = spd3 = spd4 = None
     weather_data_response = make_windapi_request(station, gridx, gridy)
+    print(weather_data_response)
     if weather_data_response.status_code == 200:
         weather_data = weather_data_response.json()
         periods = weather_data['properties']['periods']
@@ -115,11 +119,15 @@ def update_gui(site, var):
             globals()[f'{var}gnxtspd'].config(text=wind_speed_dict[site][5])
             globals()[f'{var}g3rdspd'].config(text=wind_speed_dict[site][6])
             globals()[f'{var}gfinalspd'].config(text=wind_speed_dict[site][7])
-            if int(wind_speed_dict[site][0]) >= stowspd or int(wind_speed_dict[site][1]) >= stowspd or int(wind_speed_dict[site][4]) >= stowspd or int(wind_speed_dict[site][5]) >= stowspd:
+            if int(wind_speed_dict[site][0]) >= stowspd:
                 bg_color = 'red'
-            elif (warningspdlower <= int(wind_speed_dict[site][0]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][1]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][4]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][5]) <= warningspdupper):
+            elif int(wind_speed_dict[site][4]) >= guststowspd:
+                bg_color = 'red'
+            elif (warningspdlower <= int(wind_speed_dict[site][0]) <= warningspdupper) or (gustwarninglow <= int(wind_speed_dict[site][4]) <= gustwarningup):
                 bg_color = 'orange'
-            elif (warningspdlower <= int(wind_speed_dict[site][2]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][3]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][6]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][7]) <= warningspdupper):
+            elif (warningspdlower <= int(wind_speed_dict[site][1])) or (gustwarninglow <= int(wind_speed_dict[site][5])):
+                bg_color = 'orange'
+            elif (warningspdlower <= int(wind_speed_dict[site][2]) <= warningspdupper) or (warningspdlower <= int(wind_speed_dict[site][3]) <= warningspdupper) or (gustwarninglow <= int(wind_speed_dict[site][6]) <= gustwarningup) or (gustwarninglow <= int(wind_speed_dict[site][7]) <= gustwarningup):
                 bg_color = 'yellow'
             else:
                 bg_color = 'green'
