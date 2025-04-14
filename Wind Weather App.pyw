@@ -195,9 +195,9 @@ dataFrame3 = Frame(root)
 dataFrame3.place(x=1316, y=490)
 
 legend = LabelFrame(root)
-legend.place(x=1630, y=340)
+legend.place(x=1630, y=310)
 
-legendtitle = Label(legend, text=f"Legend | Units in Mph\nRed = {stowspd}+ Mph Stow Site\nOrange = {warningspdlower}+ Mph\nYellow = Tomorrow, {warningspdlower}+ Mph")
+legendtitle = Label(legend, text=f"Legend | Units in Mph\nStow = Wind {stowspd}+ or Gusts {guststowspd} Mph\nWarning = Wind {warningspdlower}+ or Gust {gustwarninglow}+ Mph\nRed = Stow Site\nOrange = Warning\nYellow = Warning, Tomorrow")
 legendtitle.pack()
 legend1 = Button(legend, text="Learn What Time the Columns Represent", command=legend_notes, bg='light green')
 legend1.pack(fill='x')
