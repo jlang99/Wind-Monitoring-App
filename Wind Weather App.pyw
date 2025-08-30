@@ -46,22 +46,24 @@ sites = [('Bishopville II', 'bishopvilleII', 'CAE', 93, 73, 950, 425),
 
 # --- Color Palette for Weather Conditions ---
 # Sunny/Clear Scale (Yellows)
-SUNNY = '#FFD700'        # Gold - for clear, sunny days
-MOSTLY_SUNNY = '#FAFAD2'  # LightGoldenrodYellow - for mostly sunny conditions
-PARTLY_SUNNY = '#EEE8AA'  # PaleGoldenrod - for partly sunny skies
+SUNNY = '#FFD700'          # Gold - For clear, sunny days
+MOSTLY_SUNNY = '#FAFAD2'     # LightGoldenrodYellow - Predominantly sunny
+PARTLY_SUNNY = '#EEE8AA'     # PaleGoldenrod - Sun is present but not dominant
 
-# Cloudy Scale (Greys)
-PARTLY_CLOUDY = '#D3D3D3' # LightGray - for partly cloudy
-MOSTLY_CLOUDY = '#A9A9A9'  # DarkGray - for mostly cloudy
+# Cloudy/Transitional Scale (Greys/Muted Tones)
+MIXED_CONDITIONS = '#D8D8BF' # Pale, muted beige for sun-to-cloud/rain transitions
+PARTLY_CLOUDY = '#D3D3D3'    # LightGray - A neutral cloudy state
+MOSTLY_CLOUDY = '#A9A9A9'    # DarkGray - Overcast is likely
 
-# Rain/Thunderstorm Scale (Blues/Darker Greys)
-SLIGHT_CHANCE_RAIN = '#ADD8E6'    # LightBlue - for a slight chance of rain
-CHANCE_RAIN = '#87CEEB'          # SkyBlue - for a chance of rain
-RAIN_LIKELY = '#4682B4'    # SteelBlue - for likely rain
-THUNDERSTORMS = '#778899'       # LightSlateGray - for thunderstorms
-HEAVY_THUNDERSTORMS = '#708090'  # SlateGray - for likely/heavy thunderstorms
+# Precipitation Scale (Blues/Slates)
+SLIGHT_CHANCE_RAIN = '#B0E0E6' # PowderBlue - Low probability of rain
+CHANCE_RAIN = '#87CEEB'        # SkyBlue - A definite chance of rain
+RAIN_LIKELY = '#4682B4'        # SteelBlue - Rain is probable
+THUNDERSTORMS = '#778899'       # LightSlateGray - Storms are possible
+HEAVY_THUNDERSTORMS = '#2F4F4F' # DarkSlateGray - Severe storms are likely
 
-# --- Weather to Color Mapping ---
+# --- Complete Weather to Color Mapping ---
+# This dictionary uses your exact API response strings.
 weather_color_dict = {
     # Predominantly Sunny
     "Sunny": SUNNY,
@@ -73,42 +75,68 @@ weather_color_dict = {
     "Partly Cloudy": PARTLY_CLOUDY,
     "Mostly Cloudy": MOSTLY_CLOUDY,
 
-    # Rain Showers
+    # Fog
+    "Patchy Fog then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # The thunderstorm is the dominant event.
+
+    # Rain Showers (by probability)
     "Slight Chance Rain Showers": SLIGHT_CHANCE_RAIN,
     "Chance Rain Showers": CHANCE_RAIN,
-    
-    # Thunderstorms
+    "Rain Showers Likely": RAIN_LIKELY, # Changed from CHANCE_RAIN to reflect higher probability.
+
+    # Thunderstorms (by probability)
     "Slight Chance Showers And Thunderstorms": THUNDERSTORMS,
     "Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS,
     "Showers And Thunderstorms Likely": HEAVY_THUNDERSTORMS,
+    "Showers And Thunderstorms": HEAVY_THUNDERSTORMS,
 
-    # Transitional Weather (Sunny -> Cloudy/Rainy)
-    "Mostly Sunny then Chance Showers And Thunderstorms": PARTLY_SUNNY,
-    "Mostly Sunny then Slight Chance Showers And Thunderstorms": PARTLY_CLOUDY,
-    "Mostly Sunny then Chance Rain Showers": PARTLY_CLOUDY,
-    "Mostly Sunny then Slight Chance Rain Showers": PARTLY_CLOUDY,
-    "Partly Sunny then Chance Showers And Thunderstorms": THUNDERSTORMS,
-    "Partly Sunny then Slight Chance Showers And Thunderstorms": PARTLY_CLOUDY,
+    # Transitional Weather (Improving: Rainy -> Sunny)
+    "Slight Chance Rain Showers then Mostly Clear": PARTLY_SUNNY, # Focus on the positive outcome.
+    "Slight Chance Showers And Thunderstorms then Mostly Clear": PARTLY_SUNNY, # Storms clear out, ending well.
 
-    # Transitional Weather (Cloudy -> Rainy)
+    # Transitional Weather (Fog -> Sunny)
+    "Patchy Fog then Partly Sunny": PARTLY_SUNNY, # Fog burns off.
+
+    # Transitional Weather (Sunny -> Fog)
+    "Mostly Clear then Patchy Fog": PARTLY_CLOUDY, # Clear skies becoming obscured.
+
+    # Transitional Weather (Worsening: Sunny -> Rainy)
+    "Sunny then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # A good day turning definitively stormy.
+    "Sunny then Slight Chance Showers And Thunderstorms": MIXED_CONDITIONS, # A good day with a slight storm risk later.
+    "Mostly Sunny then Chance Showers And Thunderstorms": THUNDERSTORMS,   # Similar, but starting with slightly less sun.
+    "Mostly Sunny then Slight Chance Showers And Thunderstorms": MIXED_CONDITIONS, # A mostly good day with a slight storm risk.
+    "Mostly Sunny then Chance Rain Showers": CHANCE_RAIN, # Sunny start but a notable chance of rain later.
+    "Mostly Sunny then Isolated Rain Showers": MIXED_CONDITIONS, # Less severe than "chance," so a more muted color.
+    "Mostly Sunny then Isolated Showers And Thunderstorms": THUNDERSTORMS, # "Isolated" is less than "chance," but thunderstorms are significant.
+    "Mostly Sunny then Slight Chance Rain Showers": SLIGHT_CHANCE_RAIN, # Mostly good, with a low probability of rain.
+    "Partly Sunny then Slight Chance Rain Showers": PARTLY_CLOUDY, # Starts cloudy, low rain chance doesn't improve it.
+    "Partly Sunny then Slight Chance Showers And Thunderstorms": THUNDERSTORMS, # Storm risk is the key factor.
+    "Partly Sunny then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # A mixed day turning definitively stormy.
+    "Partly Sunny then Chance Rain Showers": CHANCE_RAIN, # Starts mixed, rain becomes probable.
+
+    # Transitional Weather (Worsening: Cloudy -> Rainy)
     "Partly Cloudy then Slight Chance Showers And Thunderstorms": THUNDERSTORMS,
-    "Mostly Cloudy then Slight Chance Rain Showers": MOSTLY_CLOUDY,
+    "Mostly Cloudy then Slight Chance Rain Showers": MOSTLY_CLOUDY, # Stays mostly cloudy, rain chance is slight.
+    "Partly Cloudy then Slight Chance Rain Showers": PARTLY_CLOUDY, # Stays partly cloudy, rain chance is slight.
     "Mostly Cloudy then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS,
     "Mostly Cloudy then Slight Chance Showers And Thunderstorms": THUNDERSTORMS,
 
-    # Transitional Weather (Rainy -> Cloudy)
-    "Slight Chance Showers And Thunderstorms then Partly Cloudy": THUNDERSTORMS,
-    "Chance Rain Showers then Partly Cloudy": CHANCE_RAIN,
-    "Chance Showers And Thunderstorms then Partly Cloudy": HEAVY_THUNDERSTORMS,
+    # Transitional Weather (Improving: Rainy -> Cloudy)
+    "Slight Chance Showers And Thunderstorms then Partly Cloudy": THUNDERSTORMS, # Storm risk remains the main story.
+    "Isolated Showers And Thunderstorms then Partly Cloudy": THUNDERSTORMS, # Less intense than "chance," but still the key event.
+    "Chance Rain Showers then Partly Cloudy": CHANCE_RAIN, # Rain lessens, but stays cloudy and damp.
+    "Chance Showers And Thunderstorms then Partly Cloudy": HEAVY_THUNDERSTORMS, # Storms are the primary event.
+    "Chance Showers And Thunderstorms then Mostly Cloudy": HEAVY_THUNDERSTORMS, # Storms are the primary event.
 
-    # Transitional Weather (Rainy -> Rainy/Cloudy)
-    "Slight Chance Rain Showers then Chance Showers And Thunderstorms": CHANCE_RAIN,
-    "Slight Chance Rain Showers then Slight Chance Showers And Thunderstorms": THUNDERSTORMS,
-    "Slight Chance Rain Showers then Mostly Cloudy": MOSTLY_CLOUDY,
-    "Slight Chance Rain Showers then Partly Cloudy": PARTLY_CLOUDY,
-    
-    "Showers And Thunderstorms Likely then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS,
+    "Slight Chance Rain Showers then Partly Cloudy": SLIGHT_CHANCE_RAIN, # Rain ends, leaving clouds.
+    "Slight Chance Rain Showers then Mostly Cloudy": MOSTLY_CLOUDY, # Rain ends, but becomes more overcast.
+
+    # Transitional Weather (Rainy -> Rainy)
+    "Slight Chance Rain Showers then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # Conditions worsen significantly.
+    "Slight Chance Rain Showers then Slight Chance Showers And Thunderstorms": THUNDERSTORMS, # Escalates from just rain to storm risk.
+    "Showers And Thunderstorms Likely then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # Stays stormy.
+    "Slight Chance Showers And Thunderstorms then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # Storm risk increases.
 }
+
 
 warningspdlower = 25
 warningspdupper = 29
@@ -272,16 +300,6 @@ for site, var, station, gridx, gridy, localx, localy in sites:
 
 
 
-
-
-
-def legend_notes():
-    messagebox.showinfo(parent=legend, title= "Legend Notes", message="""Column 1: Represents the Current time block; Morning, Afternoon, Night; of the Current day
-Columns 2, 3 & 4: Represent the Next time block; Afternoon, Night, Morning of the next day if the previous is Night
-Data Pulled From:
-https://api.weather.gov/""")
-
-
 dataFrame1 = Frame(root)
 dataFrame1.place(x=1720, y=490)
 
@@ -296,8 +314,6 @@ legend.place(x=1630, y=310)
 
 legendtitle = Label(legend, text=f"Legend | Units in Mph\nStow = Wind {stowspd}+ or Gusts {guststowspd} Mph\nWarning = Wind {warningspdlower}+ or Gust {gustwarninglow}+ Mph\nRed = Stow Site\nOrange = Warning\nYellow = Warning, Tomorrow")
 legendtitle.pack()
-legend1 = Button(legend, text="Learn What Time the Columns Represent", command=legend_notes, bg='light green')
-legend1.pack(fill='x')
 #TimeStamps
 updated = Label(legend, text= "Time Stamps Displayed Here")
 updated.pack()
