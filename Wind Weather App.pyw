@@ -62,25 +62,63 @@ RAIN_LIKELY = '#4682B4'        # SteelBlue - Rain is probable
 THUNDERSTORMS = '#778899'       # LightSlateGray - Storms are possible
 HEAVY_THUNDERSTORMS = '#2F4F4F' # DarkSlateGray - Severe storms are likely
 
+# --- Color Palette for Weather Conditions ---
+# Sunny/Clear Scale (Yellows)
+SUNNY = '#FFD700'          # Gold - For clear, sunny days
+MOSTLY_SUNNY = '#FAFAD2'    # LightGoldenrodYellow - Predominantly sunny
+PARTLY_SUNNY = '#EEE8AA'    # PaleGoldenrod - Sun is present but not dominant
+
+# Cloudy/Transitional Scale (Greys/Muted Tones)
+MIXED_CONDITIONS = '#D8D8BF' # Pale, muted beige for sun-to-cloud/rain transitions
+PARTLY_CLOUDY = '#D3D3D3'    # LightGray - a neutral cloudy state
+MOSTLY_CLOUDY = '#A9A9A9'    # DarkGray - Overcast is likely
+
+# Precipitation Scale (Blues/Slates)
+SLIGHT_CHANCE_RAIN = '#B0E0E6' # PowderBlue - Low probability of rain
+CHANCE_RAIN = '#87CEEB'        # SkyBlue - A definite chance of rain
+RAIN_LIKELY = '#4682B4'        # SteelBlue - Rain is probable
+THUNDERSTORMS = '#778899'       # LightSlateGray - Storms are possible
+HEAVY_THUNDERSTORMS = '#2F4F4F' # DarkSlateGray - Severe storms are likely
+
 # --- Complete Weather to Color Mapping ---
-# This dictionary uses your exact API response strings.
+# This dictionary uses the exact API response strings for shortForecast
 weather_color_dict = {
     # Predominantly Sunny
     "Sunny": SUNNY,
+    "Clear": SUNNY,
     "Mostly Clear": SUNNY,
     "Mostly Sunny": MOSTLY_SUNNY,
     "Partly Sunny": PARTLY_SUNNY,
+    "Partly Clear": PARTLY_SUNNY,
+
 
     # Predominantly Cloudy
     "Partly Cloudy": PARTLY_CLOUDY,
     "Mostly Cloudy": MOSTLY_CLOUDY,
 
-    # Fog
+    # Fog & Fog Transitions
+    "Areas Of Fog": PARTLY_CLOUDY,
+    "Patchy Fog": PARTLY_CLOUDY,
+    "Patchy Fog then Sunny": SUNNY, # Fog burns off for a clear day.
+    "Areas Of Fog then Mostly Sunny": MOSTLY_SUNNY, # Fog clears for a mostly good day.
+    "Patchy Fog then Mostly Sunny": MOSTLY_SUNNY,
+    "Patchy Fog then Partly Sunny": PARTLY_SUNNY, # Fog burns off.
+    "Patchy Fog then Slight Chance Showers And Thunderstorms": THUNDERSTORMS, # Fog gives way to potential storms.
     "Patchy Fog then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # The thunderstorm is the dominant event.
+    "Patchy Fog then Showers And Thunderstorms Likely": HEAVY_THUNDERSTORMS,
+    "Areas Of Fog then Showers And Thunderstorms Likely": HEAVY_THUNDERSTORMS, # Fog leading to probable severe weather.
 
     # Rain Showers (by probability)
+    "Areas Of Drizzle": SLIGHT_CHANCE_RAIN,
+    "Patchy Drizzle": SLIGHT_CHANCE_RAIN,
+    "Isolated Rain Showers": SLIGHT_CHANCE_RAIN,
+    "Slight Chance Light Rain": SLIGHT_CHANCE_RAIN,
+    "Chance Light Rain": CHANCE_RAIN,
     "Slight Chance Rain Showers": SLIGHT_CHANCE_RAIN,
+    "Scattered Rain Showers": CHANCE_RAIN,
+    "Chance Rain": CHANCE_RAIN,
     "Chance Rain Showers": CHANCE_RAIN,
+    "Light Rain Likely": RAIN_LIKELY,
     "Rain Showers Likely": RAIN_LIKELY, # Changed from CHANCE_RAIN to reflect higher probability.
 
     # Thunderstorms (by probability)
@@ -90,16 +128,20 @@ weather_color_dict = {
     "Showers And Thunderstorms": HEAVY_THUNDERSTORMS,
 
     # Transitional Weather (Improving: Rainy -> Sunny)
+    "Slight Chance Rain Showers then Mostly Sunny": MOSTLY_SUNNY, # Rain clears for a mostly sunny day.
+    "Slight Chance Rain Showers then Partly Sunny": PARTLY_SUNNY, # Rain clears for a partly sunny day.
+    "Slight Chance Showers And Thunderstorms then Mostly Sunny": MOSTLY_SUNNY, # Storm risk clears for a mostly sunny day.
     "Slight Chance Rain Showers then Mostly Clear": PARTLY_SUNNY, # Focus on the positive outcome.
     "Slight Chance Showers And Thunderstorms then Mostly Clear": PARTLY_SUNNY, # Storms clear out, ending well.
 
-    # Transitional Weather (Fog -> Sunny)
-    "Patchy Fog then Partly Sunny": PARTLY_SUNNY, # Fog burns off.
-
-    # Transitional Weather (Sunny -> Fog)
+    # Transitional Weather (Worsening: Clear/Cloudy -> Fog)
+    "Clear then Patchy Fog": PARTLY_CLOUDY, # Clear skies becoming obscured.
     "Mostly Clear then Patchy Fog": PARTLY_CLOUDY, # Clear skies becoming obscured.
+    "Partly Cloudy then Patchy Fog": PARTLY_CLOUDY, # Clouds thicken into fog.
+    "Partly Cloudy then Areas Of Fog": PARTLY_CLOUDY, # Similar to above.
 
     # Transitional Weather (Worsening: Sunny -> Rainy)
+    "Mostly Clear then Slight Chance Rain Showers": SLIGHT_CHANCE_RAIN,
     "Sunny then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # A good day turning definitively stormy.
     "Sunny then Slight Chance Showers And Thunderstorms": MIXED_CONDITIONS, # A good day with a slight storm risk later.
     "Mostly Sunny then Chance Showers And Thunderstorms": THUNDERSTORMS,   # Similar, but starting with slightly less sun.
@@ -108,35 +150,61 @@ weather_color_dict = {
     "Mostly Sunny then Isolated Rain Showers": MIXED_CONDITIONS, # Less severe than "chance," so a more muted color.
     "Mostly Sunny then Isolated Showers And Thunderstorms": THUNDERSTORMS, # "Isolated" is less than "chance," but thunderstorms are significant.
     "Mostly Sunny then Slight Chance Rain Showers": SLIGHT_CHANCE_RAIN, # Mostly good, with a low probability of rain.
+    "Partly Sunny then Slight Chance Light Rain": PARTLY_CLOUDY,
+    "Partly Sunny then Chance Light Rain": CHANCE_RAIN,
     "Partly Sunny then Slight Chance Rain Showers": PARTLY_CLOUDY, # Starts cloudy, low rain chance doesn't improve it.
     "Partly Sunny then Slight Chance Showers And Thunderstorms": THUNDERSTORMS, # Storm risk is the key factor.
     "Partly Sunny then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # A mixed day turning definitively stormy.
     "Partly Sunny then Chance Rain Showers": CHANCE_RAIN, # Starts mixed, rain becomes probable.
 
     # Transitional Weather (Worsening: Cloudy -> Rainy)
+    "Partly Cloudy then Chance Rain Showers": CHANCE_RAIN,
     "Partly Cloudy then Slight Chance Showers And Thunderstorms": THUNDERSTORMS,
+    "Mostly Cloudy then Patchy Drizzle": SLIGHT_CHANCE_RAIN, # Drizzle is a form of light, active precipitation.
+    "Mostly Cloudy then Slight Chance Light Rain": MOSTLY_CLOUDY,
     "Mostly Cloudy then Slight Chance Rain Showers": MOSTLY_CLOUDY, # Stays mostly cloudy, rain chance is slight.
     "Partly Cloudy then Slight Chance Rain Showers": PARTLY_CLOUDY, # Stays partly cloudy, rain chance is slight.
     "Mostly Cloudy then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS,
     "Mostly Cloudy then Slight Chance Showers And Thunderstorms": THUNDERSTORMS,
 
     # Transitional Weather (Improving: Rainy -> Cloudy)
+    "Slight Chance Light Rain then Mostly Cloudy": MOSTLY_CLOUDY,
+    "Showers And Thunderstorms Likely then Partly Cloudy": HEAVY_THUNDERSTORMS, # Storms are the main event, even as they clear.
     "Slight Chance Showers And Thunderstorms then Partly Cloudy": THUNDERSTORMS, # Storm risk remains the main story.
+    "Slight Chance Showers And Thunderstorms then Mostly Cloudy": THUNDERSTORMS, # Storm risk remains the main story.
+    "Isolated Rain Showers then Partly Cloudy": SLIGHT_CHANCE_RAIN,
+    "Isolated Rain Showers then Mostly Cloudy": MOSTLY_CLOUDY,
     "Isolated Showers And Thunderstorms then Partly Cloudy": THUNDERSTORMS, # Less intense than "chance," but still the key event.
     "Chance Rain Showers then Partly Cloudy": CHANCE_RAIN, # Rain lessens, but stays cloudy and damp.
+    "Chance Rain Showers then Mostly Cloudy": CHANCE_RAIN,
+    "Chance Light Rain then Mostly Cloudy": CHANCE_RAIN,
     "Chance Showers And Thunderstorms then Partly Cloudy": HEAVY_THUNDERSTORMS, # Storms are the primary event.
     "Chance Showers And Thunderstorms then Mostly Cloudy": HEAVY_THUNDERSTORMS, # Storms are the primary event.
-
+    "Slight Chance of Showers And Thunderstorms then Mostly Cloudy": THUNDERSTORMS, # Storm risk is the key event, even as it transitions to cloudy.
     "Slight Chance Rain Showers then Partly Cloudy": SLIGHT_CHANCE_RAIN, # Rain ends, leaving clouds.
     "Slight Chance Rain Showers then Mostly Cloudy": MOSTLY_CLOUDY, # Rain ends, but becomes more overcast.
 
-    # Transitional Weather (Rainy -> Rainy)
+    # Transitional Weather (Rainy -> Other)
+    "Rain Likely then Showers And Thunderstorms Likely": HEAVY_THUNDERSTORMS,
+    "Heavy Rain Likely then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS,
+    "Chance Light Rain then Showers And Thunderstorms Likely": HEAVY_THUNDERSTORMS,
+    "Chance Rain then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS,
+    "Chance Light Rain then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS,
+    "Scattered Rain Showers then Areas Of Fog": CHANCE_RAIN,
+    "Isolated Rain Showers then Patchy Fog": SLIGHT_CHANCE_RAIN,
+    "Chance Showers And Thunderstorms then Areas Of Fog": HEAVY_THUNDERSTORMS, # Storms are the primary event.
+    "Slight Chance Showers And Thunderstorms then Patchy Fog": THUNDERSTORMS, # Storm risk is the primary event.
+    "Chance Rain Showers then Slight Chance Showers And Thunderstorms": THUNDERSTORMS,
     "Slight Chance Rain Showers then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # Conditions worsen significantly.
+    "Chance Rain Showers then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # Escalates from rain to thunderstorms.
     "Slight Chance Rain Showers then Slight Chance Showers And Thunderstorms": THUNDERSTORMS, # Escalates from just rain to storm risk.
     "Showers And Thunderstorms Likely then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # Stays stormy.
+    "Showers And Thunderstorms Likely then Chance Light Rain": HEAVY_THUNDERSTORMS,
+    "Chance Showers And Thunderstorms then Slight Chance Light Rain": HEAVY_THUNDERSTORMS,
+    "Chance Showers And Thunderstorms then Chance Light Rain": HEAVY_THUNDERSTORMS,
+    "Chance Showers And Thunderstorms then Slight Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # De-escalates but remains stormy.
     "Slight Chance Showers And Thunderstorms then Chance Showers And Thunderstorms": HEAVY_THUNDERSTORMS, # Storm risk increases.
 }
-
 
 warningspdlower = 25
 warningspdupper = 29
