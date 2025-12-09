@@ -71,6 +71,7 @@ CHANCE_RAIN = '#87CEEB'        # SkyBlue - A definite chance of rain
 RAIN_LIKELY = '#4682B4'        # SteelBlue - Rain is probable
 THUNDERSTORMS = '#778899'       # LightSlateGray - Storms are possible
 HEAVY_THUNDERSTORMS = '#2F4F4F' # DarkSlateGray - Severe storms are likely
+ICY_BLUE = '#ADD8E6'           # LightBlue, for frost
 
 
 def get_weather_color(short_forecast):
@@ -95,10 +96,12 @@ def get_weather_color(short_forecast):
 
         # Next priority: High probability of rain
         ("rain likely", RAIN_LIKELY),
+        ("rain", RAIN_LIKELY),
         ("heavy rain", RAIN_LIKELY),
 
         # Next priority: A definite chance of precipitation
         ("chance rain", CHANCE_RAIN),
+        ("light rain", CHANCE_RAIN),
         ("rain showers", CHANCE_RAIN),
         ("scattered showers", CHANCE_RAIN),
 
@@ -113,6 +116,7 @@ def get_weather_color(short_forecast):
         ("fog", PARTLY_CLOUDY),
         ("mostly cloudy", MOSTLY_CLOUDY),
         ("cloudy", MOSTLY_CLOUDY), # General "cloudy" as a fallback
+        ("frost", ICY_BLUE),
 
         # Next priority: Mixed sun and clouds
         ("partly sunny", PARTLY_SUNNY),
@@ -280,18 +284,6 @@ map_tk = ImageTk.PhotoImage(image_map)
 maplbl = Label(root, image=map_tk)
 maplbl.place(x=0, y=0, relwidth=1, relheight=1)
 
-
-#Repeat for Each city, Also check the Lat and Long coords to ensure it's checking the correct city
-# Placing label on the map
-for site, var, station, gridx, gridy, localx, localy, tracker_site in sites:
-    globals()[var] = LabelFrame(root)
-    globals()[var].place(x=localx, y=localy)
-    globals()[f'{var}lbl'] = Label(globals()[var], text= site)
-    globals()[f'{var}lbl'].pack()
-
-
-
-
 dataFrame1 = Frame(root)
 dataFrame1.place(x=1716, y=490)
 
@@ -309,9 +301,11 @@ legend.place(x=1640, y=310)
 
 legendtitle = Label(legend, text=f"Legend | Units in Mph\nStow = Wind {stowspd}+ or Gusts {guststowspd} Mph\nWarning = Wind {warningspdlower}+ or Gust {gustwarninglow}+ Mph\nRed = Stow Site\nOrange = Warning\nYellow = Warning, Tomorrow")
 legendtitle.pack()
+
 #TimeStamps
 updated = Label(legend, text= "Time Stamps Displayed Here")
 updated.pack()
+
 #Update Button
 update_butt = Button(legend, text="Update Weather Data Now", command= lambda: get_data_then_update_gui(), bg='light green')
 update_butt.pack(fill='x')
@@ -321,6 +315,13 @@ update_butt.pack(fill='x')
 spd_wdth = 2
 count=0
 for site, var, station, gridx, gridy, localx, localy, tracker_site in sites:
+    #Placing Button Label on the Map
+    globals()[var] = LabelFrame(root)
+    globals()[var].place(x=localx, y=localy)
+    globals()[f'{var}lbl'] = Button(globals()[var], text=site, command=lambda name=site: open_weather_forecast(name))
+    globals()[f'{var}lbl'].pack()
+
+    #Creating Legend for Map
     if tracker_site:
         if count < 11:
             parent_frame = dataFrame1
