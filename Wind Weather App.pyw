@@ -20,13 +20,13 @@ sites = [('Bishopville II', 'bishopvilleII', 'CAE', 93, 73, 950, 425, TRUE),
         ('CDIA', 'cdia', 'GSP', 115, 65, 880, 200, FALSE), 
         ('Cherry', 'cherry', 'ILM', 26, 41, 1140, 475, TRUE), 
         ('Conetoe', 'conetoe', 'RAH', 117, 65, 1550, 100, TRUE), 
-        ('Cougar', 'cougar', 'RAH', 57, 41, 1300, 200, FALSE), 
+        ('Cougar', 'cougar', 'RAH', 57, 41, 1200, 180, FALSE), 
         ('Duplin', 'duplin', 'MHX', 12, 31, 1400, 250, FALSE), 
         ('Elk', 'elk', 'RAH', 58, 20, 1250, 280, TRUE), 
         ('Freight Line', 'freightline', 'MHX', 20, 32, 1450, 250, TRUE), 
         ('Gray Fox', 'grayfox', 'ILM', 43, 90, 1285, 290, TRUE),
         ('Harding', 'harding', 'MHX', 22, 53, 1475, 150, TRUE), 
-        ('Harrison', 'harrison', 'RAH', 83, 23, 1310, 250, FALSE), 
+        ('Harrison', 'harrison', 'RAH', 83, 23, 1310, 240, FALSE), 
         ('Hayes', 'hayes', 'RNK', 50, 27, 880, 40, TRUE), 
         ('Hickory', 'hickory', 'MHX', 12, 24, 1400, 290, TRUE), 
         ('Hickson', 'hickson', 'ILM', 17, 81, 1020, 320, TRUE),
@@ -50,9 +50,11 @@ sites = [('Bishopville II', 'bishopvilleII', 'CAE', 93, 73, 950, 425, TRUE),
         ('Washington', 'washington', 'RNK', 85, 25, 1070, 80, TRUE),
         ('Wayne I', 'waynei', 'RAH', 100, 36, 1400, 150, FALSE), 
         ('Wayne II', 'wayneii', 'RAH', 97, 39, 1390, 125, FALSE), 
-        ('Wayne III', 'wayneiii', 'RAH', 105, 41, 1435, 125, FALSE), 
+        ('Wayne III', 'wayneiii', 'RAH', 105, 41, 1435, 125, FALSE),
+        ('Wellons', 'wellons', 'RAH', 88, 47, 1320, 170, FALSE), 
         ('Whitehall', 'whitehall', 'ILM', 18, 51, 1030, 440, TRUE), 
-        ('Whitetail', 'whitetail', 'ILM', 35, 69, 1150, 350, TRUE)]
+        ('Whitetail', 'whitetail', 'ILM', 35, 69, 1150, 350, TRUE),
+        ('Williams', 'williams', 'RAH', 87, 36, 1320, 200, TRUE)]
 
 # --- Color Palette for Weather Conditions ---
 # Sunny/Clear Scale (Yellows)
@@ -288,13 +290,16 @@ dataFrame1 = Frame(root)
 dataFrame1.place(x=1716, y=490)
 
 dataFrame2 = Frame(root)
-dataFrame2.place(x=1504, y=490)
+dataFrame2.place(x=1506, y=490)
 
 dataFrame3 = Frame(root)
-dataFrame3.place(x=1295, y=490)
+dataFrame3.place(x=1296, y=490)
+
+dataFrame4 = Frame(root)
+dataFrame4.place(x=1086, y=690)
 
 nonTFrame = Frame(root)
-nonTFrame.place(x=1235, y=490)
+nonTFrame.place(x=1860, y=5)
 
 legend = LabelFrame(root)
 legend.place(x=1640, y=310)
@@ -327,8 +332,10 @@ for site, var, station, gridx, gridy, localx, localy, tracker_site in sites:
             parent_frame = dataFrame1
         elif count < 22:
             parent_frame = dataFrame2
-        else:
+        elif count < 33:
             parent_frame = dataFrame3
+        else:
+            parent_frame = dataFrame4
         globals()[f'{var}data'] = LabelFrame(parent_frame)
         frame = globals()[f'{var}data']
         frame.pack(anchor=W, fill= 'x')
