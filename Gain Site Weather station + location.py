@@ -8,7 +8,7 @@ def make_stationapi_request(latitude, longitude):
     }
     return requests.get(url, headers=headers)
 
-sites = [("Bluebird", '34.6012', '-82.7391')]
+sites = {("Wellons", '35.510813', '-78.292403')}
 
 
 
@@ -17,4 +17,8 @@ for site, lat, long in sites:
         response = make_stationapi_request(lat, long)
         if response.status_code == 200:
             data = response.json()
-            print(f'{site} | {data}')
+            gridId = data.get('properties', {}).get('gridId')
+            gridX = data.get('properties', {}).get('gridX')
+            gridY = data.get('properties', {}).get('gridY')
+
+            print(f'{site} | Grid ID: {gridId}, Grid X: {gridX}, Grid Y: {gridY}')

@@ -1,16 +1,26 @@
 from tkinter import *
 from tkinter import messagebox
-
 import datetime as dt
 import requests
-from requests_html import HTMLSession
-import json
-from urllib.request import urlopen
-from bs4 import BeautifulSoup
-from icecream import ic
 import re
+import json
 from PIL import ImageTk, Image
 import ctypes, os
+from collections import Counter
+
+
+
+
+
+
+### IDEAS TO BETTER THE PROCESS ###
+# Add a function to input the weather to the POD file
+# Later on I can design the Maintenance Manager their own Weather App. 
+
+
+
+### END ###
+
 
 #Site, Var name, Station, Grid Point x, Grid Point Y, X on Map, Y on Map    |       For the Map the higher the number the farther down or Right it is
 sites = [('Bishopville II', 'bishopvilleII', 'CAE', 93, 73, 950, 425, TRUE),
@@ -74,6 +84,9 @@ RAIN_LIKELY = '#4682B4'        # SteelBlue - Rain is probable
 THUNDERSTORMS = '#778899'       # LightSlateGray - Storms are possible
 HEAVY_THUNDERSTORMS = '#2F4F4F' # DarkSlateGray - Severe storms are likely
 ICY_BLUE = '#ADD8E6'           # LightBlue, for frost
+SNOW = '#ecfffd'
+LIGHT_SNOW = '#ffffff'
+HEAVY_SNOW = "#d0eceb"
 
 
 def get_weather_color(short_forecast):
@@ -95,17 +108,25 @@ def get_weather_color(short_forecast):
     weather_keywords = [
         # Highest priority: Storms and severe weather
         ("thunderstorms", HEAVY_THUNDERSTORMS),
+        ("snow", SNOW),
+        ("heavy snow", HEAVY_SNOW),
+        ("light snow", LIGHT_SNOW),
+        
 
         # Next priority: High probability of rain
         ("rain likely", RAIN_LIKELY),
         ("rain", RAIN_LIKELY),
         ("heavy rain", RAIN_LIKELY),
+        ("sleet", RAIN_LIKELY),
+        
 
         # Next priority: A definite chance of precipitation
         ("chance rain", CHANCE_RAIN),
         ("light rain", CHANCE_RAIN),
         ("rain showers", CHANCE_RAIN),
         ("scattered showers", CHANCE_RAIN),
+        ("chance sleet", CHANCE_RAIN),
+        
 
         # Next priority: Low or slight chance of precipitation
         ("slight chance", SLIGHT_CHANCE_RAIN),
@@ -222,6 +243,79 @@ def get_wind_speed(site, station, gridx, gridy, var, has_tracker):
     site_data_dict[site] = [spd1, spd2, spd3, spd4, gust1, gust2, gust3, gust4, weather_color]
 
 
+def generate_regional_summary():
+    # Representative sites for Inland and Coastal regions to generate a general blurb
+    # Will need to fine tune this to improve the teams operatonal efficiency. This is simply and example of can be generated from the Weather API we utilize.
+    rep_sites = {
+        'Inland': 'Harrison',
+        'Coastal': 'Cardinal'
+    }
+    
+    summaries = {}
+    
+    for region, site_name in rep_sites.items():
+        # Find site data in the global sites list
+        site_info = next((s for s in sites if s[0] == site_name), None)
+        if not site_info:
+            summaries[region] = "Site configuration not found."
+            continue
+            
+        station, gridx, gridy = site_info[2], site_info[3], site_info[4]
+        
+        try:
+            response = make_windapi_request(station, gridx, gridy)
+            if response.status_code != 200:
+                summaries[region] = "Data unavailable."
+                continue
+                
+            data = response.json()
+            periods = data['properties']['periods']
+            
+            # Filter for daytime periods to get daily highs and general conditions for the next 7 days
+            day_periods = [p for p in periods if p['isDaytime']]
+            
+            if not day_periods:
+                summaries[region] = "No forecast data available."
+                continue
+                
+            temps = [p['temperature'] for p in day_periods]
+            min_temp = min(temps)
+            max_temp = max(temps)
+            
+            conditions = [p['shortForecast'] for p in day_periods]
+            
+            # Find the most common weather condition (e.g., "Mostly Sunny")
+            common_cond = Counter(conditions).most_common(1)[0][0]
+            
+            # Identify days with precipitation keywords
+            rain_days = []
+            for p in day_periods:
+                desc = p['shortForecast'].lower()
+                if any(x in desc for x in ["rain", "showers", "thunderstorms", "drizzle", "snow"]):
+                    rain_days.append(p['name'])
+            
+            rain_str = ""
+            if rain_days:
+                if len(rain_days) > 4:
+                    rain_str = "Chance of precipitation throughout the week."
+                else:
+                    rain_str = f"Chance of precipitation on {', '.join(rain_days)}."
+            else:
+                rain_str = "Little to no precipitation expected."
+                
+            summary = f"Highs {min_temp}-{max_temp}°F. Predominantly {common_cond.lower()}. {rain_str}"
+            summaries[region] = summary
+            
+        except Exception as e:
+            summaries[region] = f"Error generating forecast: {e}"
+
+    # Construct the final message, merging if conditions are identical
+    if summaries.get('Inland') == summaries.get('Coastal'):
+        final_text = f"Regional Forecast (Next 7 Days):\n\n{summaries['Inland']}"
+    else:
+        final_text = f"Regional Forecast (Next 7 Days):\n\nInland (e.g., NC Piedmont):\n{summaries.get('Inland', 'N/A')}\n\nCoastal (e.g., NC/SC Coast):\n{summaries.get('Coastal', 'N/A')}"
+        
+    messagebox.showinfo("7-Day Regional Forecast", final_text)
 
 def update_gui(site, var, has_tracker):
     globals()[f'{var}legend'].config(bg=site_data_dict[site][8])
@@ -235,21 +329,32 @@ def update_gui(site, var, has_tracker):
             globals()[f'{var}gnxtspd'].config(text=site_data_dict[site][5])
             globals()[f'{var}g3rdspd'].config(text=site_data_dict[site][6])
             globals()[f'{var}gfinalspd'].config(text=site_data_dict[site][7])
-            if int(site_data_dict[site][0]) >= stowspd:
-                bg_color = 'red'
-            elif int(site_data_dict[site][4]) >= guststowspd:
-                bg_color = 'red'
-            elif (warningspdlower <= int(site_data_dict[site][0]) <= warningspdupper) or (gustwarninglow <= int(site_data_dict[site][4]) <= gustwarningup):
-                bg_color = 'orange'
-            elif (warningspdlower <= int(site_data_dict[site][1])) or (gustwarninglow <= int(site_data_dict[site][5])):
-                bg_color = 'orange'
-            elif (warningspdlower <= int(site_data_dict[site][2]) <= warningspdupper) or (warningspdlower <= int(site_data_dict[site][3]) <= warningspdupper) or (gustwarninglow <= int(site_data_dict[site][6]) <= gustwarningup) or (gustwarninglow <= int(site_data_dict[site][7]) <= gustwarningup):
-                bg_color = 'yellow'
-            else:
-                bg_color = 'green'
+            
+            cur_spd = int(site_data_dict[site][0])
+            cur_gust = int(site_data_dict[site][4])
+            is_stowed = globals().get(f'{var}override_var') and globals()[f'{var}override_var'].get()
+            is_over_stow = cur_spd >= stowspd or cur_gust >= guststowspd
 
-            for label_suffix in ['', 'data', 'lbl', 'lblwind', 'curspd', 'nxtspd', '3rdspd', 'finalspd', 'gcurspd', 'gnxtspd', 'g3rdspd', 'gfinalspd', 'lblgust']:
-                globals()[f'{var}{label_suffix}'].config(bg=bg_color)
+            if is_stowed:
+                if is_over_stow:
+                    bg_color = 'green'
+                else:
+                    bg_color = 'red'
+            else:
+                if is_over_stow:
+                    bg_color = 'red'
+                elif (warningspdlower <= cur_spd <= warningspdupper) or (gustwarninglow <= cur_gust <= gustwarningup):
+                    bg_color = 'orange'
+                elif (warningspdlower <= int(site_data_dict[site][1])) or (gustwarninglow <= int(site_data_dict[site][5])):
+                    bg_color = 'orange'
+                elif (warningspdlower <= int(site_data_dict[site][2]) <= warningspdupper) or (warningspdlower <= int(site_data_dict[site][3]) <= warningspdupper) or (gustwarninglow <= int(site_data_dict[site][6]) <= gustwarningup) or (gustwarninglow <= int(site_data_dict[site][7]) <= gustwarningup):
+                    bg_color = 'yellow'
+                else:
+                    bg_color = 'green'
+
+            for label_suffix in ['', 'data', 'lbl', 'lblwind', 'curspd', 'nxtspd', '3rdspd', 'finalspd', 'gcurspd', 'gnxtspd', 'g3rdspd', 'gfinalspd', 'lblgust', 'override_cb']:
+                if f'{var}{label_suffix}' in globals():
+                    globals()[f'{var}{label_suffix}'].config(bg=bg_color)
 
 
 def get_data_then_update_gui():
@@ -270,6 +375,27 @@ def get_data_then_update_gui():
 def open_weather_forecast(site):
     os.startfile(f"G:\\Shared drives\\O&M\\NCC Automations\\Daily Automations\\Weather Data\\{site} Weather Forecast.txt")
 
+def save_cb_states():
+    state_dict = {}
+    for site, var, station, gridx, gridy, localx, localy, tracker_site in sites:
+        if tracker_site:
+            if globals().get(f'{var}override_var'):
+                state_dict[var] = globals()[f'{var}override_var'].get()
+    
+    with open(r"G:\Shared drives\O&M\NCC Automations\Daily Automations\Weather Data\checkbox_states.json", "w") as f:
+        json.dump(state_dict, f)
+
+def load_cb_states():
+    file_path = r"G:\Shared drives\O&M\NCC Automations\Daily Automations\Weather Data\checkbox_states.json"
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r") as f:
+                state_dict = json.load(f)
+                for var, state in state_dict.items():
+                    if globals().get(f'{var}override_var'):
+                        globals()[f'{var}override_var'].set(state)
+        except Exception as e:
+            print(f"Error loading checkbox states: {e}")
 
 
 myappid = 'NCC.Wind.Monitor.GUI'
@@ -287,24 +413,24 @@ maplbl = Label(root, image=map_tk)
 maplbl.place(x=0, y=0, relwidth=1, relheight=1)
 
 dataFrame1 = Frame(root)
-dataFrame1.place(x=1716, y=490)
+dataFrame1.place(x=1685, y=490)
 
 dataFrame2 = Frame(root)
-dataFrame2.place(x=1506, y=490)
+dataFrame2.place(x=1445, y=490)
 
 dataFrame3 = Frame(root)
-dataFrame3.place(x=1296, y=490)
+dataFrame3.place(x=1205, y=490)
 
 dataFrame4 = Frame(root)
-dataFrame4.place(x=1086, y=690)
+dataFrame4.place(x=896, y=690)
 
 nonTFrame = Frame(root)
 nonTFrame.place(x=1860, y=5)
 
 legend = LabelFrame(root)
-legend.place(x=1640, y=310)
+legend.place(x=1690, y=290)
 
-legendtitle = Label(legend, text=f"Legend | Units in Mph\nStow = Wind {stowspd}+ or Gusts {guststowspd} Mph\nWarning = Wind {warningspdlower}+ or Gust {gustwarninglow}+ Mph\nRed = Stow Site\nOrange = Warning\nYellow = Warning, Tomorrow")
+legendtitle = Label(legend, text=f"Legend | Units in Mph\nStow = Wind {stowspd}+ or Gusts {guststowspd} Mph\nWarning = Wind {warningspdlower}+ or Gust {gustwarninglow}+ Mph\nRed = Stow/Unstow Action Needed\nOrange = Warning\nYellow = Warning, Tomorrow\nCheckbox = Stowed")
 legendtitle.pack()
 
 #TimeStamps
@@ -315,6 +441,9 @@ updated.pack()
 update_butt = Button(legend, text="Update Weather Data Now", command= lambda: get_data_then_update_gui(), bg='light green')
 update_butt.pack(fill='x')
 
+#Regional Forecast Button
+regional_butt = Button(legend, text="7-Day Regional Forecast", command=generate_regional_summary, bg='light blue')
+regional_butt.pack(fill='x', pady=2)
 
 
 spd_wdth = 2
@@ -339,31 +468,36 @@ for site, var, station, gridx, gridy, localx, localy, tracker_site in sites:
         globals()[f'{var}data'] = LabelFrame(parent_frame)
         frame = globals()[f'{var}data']
         frame.pack(anchor=W, fill= 'x')
-        frame.columnconfigure(0, weight=1)
-        frame.columnconfigure(1, weight=2)
+        frame.columnconfigure(1, weight=1)
+        frame.columnconfigure(2, weight=2)
+        
+        globals()[f'{var}override_var'] = BooleanVar()
+        globals()[f'{var}override_cb'] = Checkbutton(frame, variable=globals()[f'{var}override_var'], command=lambda s=site, v=var, t=tracker_site: [update_gui(s, v, t), save_cb_states()])
+        globals()[f'{var}override_cb'].grid(row=0, column=0, sticky=W, rowspan=2)
+
         globals()[f'{var}legend'] = Button(frame, text=site, command= lambda name=site: open_weather_forecast(name))
-        globals()[f'{var}legend'].grid(row= 0, column= 0, sticky=W, rowspan=2)
+        globals()[f'{var}legend'].grid(row= 0, column= 1, sticky=W, rowspan=2)
         globals()[f'{var}lblwind'] = Label(frame, text= "Wind: ")
-        globals()[f'{var}lblwind'].grid(row= 0, column= 1, sticky=E)
+        globals()[f'{var}lblwind'].grid(row= 0, column= 2, sticky=E)
         globals()[f'{var}curspd'] = Label(frame, text= "N/A", width=spd_wdth)
-        globals()[f'{var}curspd'].grid(row= 0, column= 2, sticky=E)
+        globals()[f'{var}curspd'].grid(row= 0, column= 3, sticky=E)
         globals()[f'{var}nxtspd'] = Label(frame, text= "N/A", width=spd_wdth)
-        globals()[f'{var}nxtspd'].grid(row= 0, column= 3, sticky=E)
+        globals()[f'{var}nxtspd'].grid(row= 0, column= 4, sticky=E)
         globals()[f'{var}3rdspd'] = Label(frame, text= "N/A", width=spd_wdth)
-        globals()[f'{var}3rdspd'].grid(row= 0, column= 4, sticky=E)
+        globals()[f'{var}3rdspd'].grid(row= 0, column= 5, sticky=E)
         globals()[f'{var}finalspd'] = Label(frame, text= "N/A", width=spd_wdth)
-        globals()[f'{var}finalspd'].grid(row= 0, column= 5, sticky=E)
+        globals()[f'{var}finalspd'].grid(row= 0, column= 6, sticky=E)
 
         globals()[f'{var}lblgust'] = Label(frame, text= "Gust: ")
-        globals()[f'{var}lblgust'].grid(row= 1, column= 1, sticky=E)
+        globals()[f'{var}lblgust'].grid(row= 1, column= 2, sticky=E)
         globals()[f'{var}gcurspd'] = Label(frame, text= "N/A", width=spd_wdth)
-        globals()[f'{var}gcurspd'].grid(row= 1, column= 2, sticky=E)
+        globals()[f'{var}gcurspd'].grid(row= 1, column= 3, sticky=E)
         globals()[f'{var}gnxtspd'] = Label(frame, text= "N/A", width=spd_wdth)
-        globals()[f'{var}gnxtspd'].grid(row= 1, column= 3, sticky=E)
+        globals()[f'{var}gnxtspd'].grid(row= 1, column= 4, sticky=E)
         globals()[f'{var}g3rdspd'] = Label(frame, text= "N/A", width=spd_wdth)
-        globals()[f'{var}g3rdspd'].grid(row= 1, column= 4, sticky=E)
+        globals()[f'{var}g3rdspd'].grid(row= 1, column= 5, sticky=E)
         globals()[f'{var}gfinalspd'] = Label(frame, text= "N/A", width=spd_wdth)
-        globals()[f'{var}gfinalspd'].grid(row= 1, column= 5, sticky=E)
+        globals()[f'{var}gfinalspd'].grid(row= 1, column= 6, sticky=E)
         count+=1
 
     else:
@@ -371,7 +505,7 @@ for site, var, station, gridx, gridy, localx, localy, tracker_site in sites:
         globals()[f'{var}legend'].pack(anchor=W, fill= 'x')
 
 
-
+load_cb_states()
 get_data_then_update_gui()  
 root.mainloop()
   
