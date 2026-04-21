@@ -5,66 +5,68 @@ import requests
 import re
 import json
 from PIL import ImageTk, Image
-import ctypes, os
+import ctypes, os, sys
 from collections import Counter
 
-
-
-
-
+# Add the parent directory ('NCC Automations') to the Python path
+# This allows us to import the 'PythonTools' package from there.
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
+from PythonTools import SITES_CONFIG
 
 ### IDEAS TO BETTER THE PROCESS ###
 # Add a function to input the weather to the POD file
 # Later on I can design the Maintenance Manager their own Weather App. 
 
-
-
 ### END ###
 
+class SolarSite:
+    def __init__(self, name, var_name, lat, lon, localx, localy, has_tracker):
+        self.name = name
+        self.var_name = var_name
+        self.lat = lat
+        self.lon = lon
+        self.localx = localx
+        self.localy = localy
+        self.has_tracker = has_tracker
+        self.station = None
+        self.gridx = None
+        self.gridy = None
+        
+    def fetch_grid_points(self):
+        if not self.lat or not self.lon:
+            return False
+        url = f"https://api.weather.gov/points/{self.lat},{self.lon}"
+        headers = {
+            'Content-Type': 'application/ld+json',
+        }
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                self.station = data.get('properties', {}).get('gridId')
+                self.gridx = data.get('properties', {}).get('gridX')
+                self.gridy = data.get('properties', {}).get('gridY')
+                return True
+            else:
+                print(f"Grid points API for {self.name} failed: HTTP {response.status_code} \n {response.text}")
+        except Exception as e:
+            print(f"Error fetching grid points for {self.name}: {e}")
+        return False
 
-#Site, Var name, Station, Grid Point x, Grid Point Y, X on Map, Y on Map    |       For the Map the higher the number the farther down or Right it is
-sites = [('Bishopville II', 'bishopvilleII', 'CAE', 93, 73, 950, 425, TRUE),
-        ('Bluebird', 'bluebird', 'GSP', 53, 31, 500, 330, TRUE), 
-        ('Bulloch 1A', 'bulloch1a', 'CHS', 19, 52, 650, 700, TRUE), ('Bulloch 1B', 'bulloch1b', 'CHS', 19, 52, 650, 720, TRUE), 
-        ('Cardinal', 'cardinal', 'ILM', 37, 60, 1150, 400, TRUE), 
-        ('CDIA', 'cdia', 'GSP', 115, 65, 880, 200, FALSE), 
-        ('Cherry', 'cherry', 'ILM', 26, 41, 1140, 475, TRUE), 
-        ('Conetoe', 'conetoe', 'RAH', 117, 65, 1550, 100, TRUE), 
-        ('Cougar', 'cougar', 'RAH', 57, 41, 1200, 180, FALSE), 
-        ('Duplin', 'duplin', 'MHX', 12, 31, 1400, 250, FALSE), 
-        ('Elk', 'elk', 'RAH', 58, 20, 1250, 280, TRUE), 
-        ('Freight Line', 'freightline', 'MHX', 20, 32, 1450, 250, TRUE), 
-        ('Gray Fox', 'grayfox', 'ILM', 43, 90, 1285, 290, TRUE),
-        ('Harding', 'harding', 'MHX', 22, 53, 1475, 150, TRUE), 
-        ('Harrison', 'harrison', 'RAH', 83, 23, 1310, 240, FALSE), 
-        ('Hayes', 'hayes', 'RNK', 50, 27, 880, 40, TRUE), 
-        ('Hickory', 'hickory', 'MHX', 12, 24, 1400, 290, TRUE), 
-        ('Hickson', 'hickson', 'ILM', 17, 81, 1020, 320, TRUE),
-        ('Holly Swamp', 'hollyswamp', 'ILM', 44, 82, 1285, 315, TRUE),
-        ('Jefferson', 'jefferson', 'ILM', 11, 64, 965, 405, TRUE), 
-        ('Marshall', 'marshall', 'ILM', 13, 65, 1020, 420, TRUE),
-        ('McLean', 'mclean', 'RAH', 49, 10, 1100, 300, TRUE), 
-        ('Lily', 'lily', 'CHS', 30, 84, 800, 650, TRUE),
-        ('Longleaf Pine', 'longleafpine', 'GSP', 129, 100, 900, 80, TRUE),
-        ('Ogburn', 'ogburn', 'CAE', 85, 93, 960, 330, TRUE), 
-        ('PG', 'pg', 'MHX', 9, 40, 1400, 175, TRUE), 
-        ('Richmond', 'richmond', 'CAE', 29, 27, 600, 600, TRUE),
-        ('Shorthorn', 'shorthorn', 'ILM', 29, 81, 1090, 320, TRUE), 
-        ('Sunflower', 'sunflower', 'ILM', 23, 38, 1040, 480, TRUE), 
-        ('Tedder', 'tedder', 'ILM', 17, 63, 1020, 400, TRUE),
-        ('Thunderhead', 'thunderhead', 'RAH', 33, 51, 1070, 200, TRUE), 
-        ('Upson', 'upson', 'FFC', 58, 51, 190, 680, TRUE), 
-        ('Van Buren', 'vanburen', 'RAH', 83, 23, 1310, 270, TRUE), 
-        ('Violet', 'violet', 'GSP', 133, 74, 900, 170, FALSE), 
-        ('Warbler', 'warbler', 'GSP', 90, 66, 750, 200, FALSE), 
-        ('Washington', 'washington', 'RNK', 85, 25, 1070, 80, TRUE),
-        ('Wayne I', 'waynei', 'RAH', 100, 36, 1400, 150, FALSE), 
-        ('Wayne II', 'wayneii', 'RAH', 97, 39, 1390, 125, FALSE), 
-        ('Wayne III', 'wayneiii', 'RAH', 105, 41, 1435, 125, FALSE),
-        ('Wellons', 'wellons', 'RAH', 88, 47, 1320, 170, FALSE), 
-        ('Whitehall', 'whitehall', 'ILM', 18, 51, 1030, 440, TRUE), 
-        ('Whitetail', 'whitetail', 'ILM', 35, 69, 1150, 350, TRUE),
-        ('Williams', 'williams', 'RAH', 87, 36, 1320, 200, TRUE)]
+    def make_windapi_request(self):
+        if not self.station or self.gridx is None or self.gridy is None:
+            if not self.fetch_grid_points():
+                return None
+        url = f"https://api.weather.gov/gridpoints/{self.station}/{self.gridx},{self.gridy}/forecast"
+        headers = {
+            'Content-Type': 'application/ld+json',
+        }
+        try:
+            return requests.get(url, headers=headers, timeout=10)
+        except Exception as e:
+            print(f"Error making forecast API request for {self.name}: {e}")
+            return None
 
 # --- Color Palette for Weather Conditions ---
 # Sunny/Clear Scale (Yellows)
@@ -161,31 +163,26 @@ def get_weather_color(short_forecast):
     messagebox.showinfo(title="NCC Weather App New Function", message=f"Color not found for {forecast}")
     return MIXED_CONDITIONS
 
-warningspdlower = 25
-warningspdupper = 29
-gustwarninglow = 30
-gustwarningup = 34
+warningspdlower = 30
+warningspdupper = 34
+gustwarninglow = 36
+gustwarningup = 39
 
-stowspd = 30
-guststowspd = 35
+stowspd = 35
+guststowspd = 40
 
 site_data_dict = {}
 
-def make_windapi_request(office, gridX, gridY):
-    url = f"https://api.weather.gov/gridpoints/{office}/{gridX},{gridY}/forecast"
-    headers = {
-        'Content-Type': 'application/ld+json',
-    }
-    return requests.get(url, headers=headers) 
-
-def get_wind_speed(site, station, gridx, gridy, var, has_tracker):
+def get_wind_speed(site_obj):
     gust1 = gust2 = gust3 = gust4 = spd1 = spd2 = spd3 = spd4 = None
-    weather_data_response = make_windapi_request(station, gridx, gridy)
-    if weather_data_response.status_code == 200:
+    weather_color = 'pink'
+    weather_data_response = site_obj.make_windapi_request()
+    
+    if weather_data_response and weather_data_response.status_code == 200:
         weather_data = weather_data_response.json()
 
         #See the output from the API response. 
-        #if site == "Cherry":
+        #if site_obj.name == "Cherry":
         #    print(json.dumps(weather_data, indent=4))
         
         periods = weather_data['properties']['periods']
@@ -195,14 +192,14 @@ def get_wind_speed(site, station, gridx, gridy, var, has_tracker):
             if i == 1:
                 forecast_now = period['shortForecast']
                 weather_color = get_weather_color(forecast_now)
-                if has_tracker is FALSE:
-                    globals()[f'{var}lbl'].config(bg=weather_color)
+                if site_obj.has_tracker is False:
+                    globals()[f'{site_obj.var_name}lbl'].config(bg=weather_color)
 
                 
-                with open(f"G:\\Shared drives\\O&M\\NCC Automations\\Daily Automations\\Weather Data\\{site} Weather Forecast.txt", "w") as file:
+                with open(f"G:\\Shared drives\\O&M\\NCC Automations\\Daily Automations\\Weather Data\\{site_obj.name} Weather Forecast.txt", "w") as file:
                     file.write(f"{period_name:<18} {period['detailedForecast']}")
             else:
-                with open(f"G:\\Shared drives\\O&M\\NCC Automations\\Daily Automations\\Weather Data\\{site} Weather Forecast.txt", "a") as file:
+                with open(f"G:\\Shared drives\\O&M\\NCC Automations\\Daily Automations\\Weather Data\\{site_obj.name} Weather Forecast.txt", "a") as file:
                     file.write(f"\n{period_name:<18} {period['detailedForecast']}")
 
             speed_match = re.search(r'(\d+) mph', period['windSpeed'])
@@ -231,6 +228,10 @@ def get_wind_speed(site, station, gridx, gridy, var, has_tracker):
                 gust4 = gust
 
     else:
+        if weather_data_response:
+            print(weather_data_response.status_code, '\n', weather_data_response.text)
+        else:
+            print(f"Failed to fetch forecast API response for {site_obj.name}")
         spd1 = "N/A"
         spd2 = "N/A"
         spd3 = "N/A"
@@ -240,7 +241,7 @@ def get_wind_speed(site, station, gridx, gridy, var, has_tracker):
         gust3 = "N/A"
         gust4 = "N/A"
   
-    site_data_dict[site] = [spd1, spd2, spd3, spd4, gust1, gust2, gust3, gust4, weather_color]
+    site_data_dict[site_obj.name] = [spd1, spd2, spd3, spd4, gust1, gust2, gust3, gust4, weather_color]
 
 
 def generate_regional_summary():
@@ -254,17 +255,15 @@ def generate_regional_summary():
     summaries = {}
     
     for region, site_name in rep_sites.items():
-        # Find site data in the global sites list
-        site_info = next((s for s in sites if s[0] == site_name), None)
+        # Find site data in the global site_objects list
+        site_info = next((s for s in site_objects if s.name == site_name), None)
         if not site_info:
             summaries[region] = "Site configuration not found."
             continue
             
-        station, gridx, gridy = site_info[2], site_info[3], site_info[4]
-        
         try:
-            response = make_windapi_request(station, gridx, gridy)
-            if response.status_code != 200:
+            response = site_info.make_windapi_request()
+            if not response or response.status_code != 200:
                 summaries[region] = "Data unavailable."
                 continue
                 
@@ -317,7 +316,11 @@ def generate_regional_summary():
         
     messagebox.showinfo("7-Day Regional Forecast", final_text)
 
-def update_gui(site, var, has_tracker):
+def update_gui(site_obj):
+    site = site_obj.name
+    var = site_obj.var_name
+    has_tracker = site_obj.has_tracker
+    
     globals()[f'{var}legend'].config(bg=site_data_dict[site][8])
     if has_tracker:
         if site_data_dict[site][0] != "N/A": #Avoids overwriting a successful data pull with N/A
@@ -359,12 +362,11 @@ def update_gui(site, var, has_tracker):
 
 def get_data_then_update_gui():
     globals()['site_data_dict'] = {}
-    for site, var, station, gridx, gridy, localx, localy, tracking_site in sites:
-        if gridx and gridy:
-            get_wind_speed(site, station, gridx, gridy, var, tracking_site)
+    for site_obj in site_objects:
+        get_wind_speed(site_obj)
 
-    for site, var, station, gridx, gridy, localx, localy, tracking_site in sites:
-        update_gui(site, var, tracking_site)
+    for site_obj in site_objects:
+        update_gui(site_obj)
     update_time = dt.datetime.now() + dt.timedelta(minutes=30)
     update_t = update_time.strftime("%H:%M")
     timenow = dt.datetime.now().strftime("%H:%M")
@@ -377,8 +379,9 @@ def open_weather_forecast(site):
 
 def save_cb_states():
     state_dict = {}
-    for site, var, station, gridx, gridy, localx, localy, tracker_site in sites:
-        if tracker_site:
+    for site_obj in site_objects:
+        if site_obj.has_tracker:
+            var = site_obj.var_name
             if globals().get(f'{var}override_var'):
                 state_dict[var] = globals()[f'{var}override_var'].get()
     
@@ -391,8 +394,10 @@ def load_cb_states():
         try:
             with open(file_path, "r") as f:
                 state_dict = json.load(f)
-                for var, state in state_dict.items():
-                    if globals().get(f'{var}override_var'):
+                for site_obj in site_objects:
+                    var = site_obj.var_name
+                    state = state_dict.get(var)
+                    if state is not None and globals().get(f'{var}override_var'):
                         globals()[f'{var}override_var'].set(state)
         except Exception as e:
             print(f"Error loading checkbox states: {e}")
@@ -445,10 +450,19 @@ update_butt.pack(fill='x')
 regional_butt = Button(legend, text="7-Day Regional Forecast", command=generate_regional_summary, bg='light blue')
 regional_butt.pack(fill='x', pady=2)
 
+site_objects = []
+for site_name, data in SITES_CONFIG.items():
+    site_obj = SolarSite(site_name, data['var'], data['lat'], data['lon'], data['x'], data['y'], data['tracker'])
+    site_objects.append(site_obj)
 
 spd_wdth = 2
 count=0
-for site, var, station, gridx, gridy, localx, localy, tracker_site in sites:
+for site_obj in site_objects:
+    site = site_obj.name
+    var = site_obj.var_name
+    localx = site_obj.localx
+    localy = site_obj.localy
+    tracker_site = site_obj.has_tracker
     #Placing Button Label on the Map
     globals()[var] = LabelFrame(root)
     globals()[var].place(x=localx, y=localy)
@@ -472,7 +486,7 @@ for site, var, station, gridx, gridy, localx, localy, tracker_site in sites:
         frame.columnconfigure(2, weight=2)
         
         globals()[f'{var}override_var'] = BooleanVar()
-        globals()[f'{var}override_cb'] = Checkbutton(frame, variable=globals()[f'{var}override_var'], command=lambda s=site, v=var, t=tracker_site: [update_gui(s, v, t), save_cb_states()])
+        globals()[f'{var}override_cb'] = Checkbutton(frame, variable=globals()[f'{var}override_var'], command=lambda s_obj=site_obj: [update_gui(s_obj), save_cb_states()])
         globals()[f'{var}override_cb'].grid(row=0, column=0, sticky=W, rowspan=2)
 
         globals()[f'{var}legend'] = Button(frame, text=site, command= lambda name=site: open_weather_forecast(name))
