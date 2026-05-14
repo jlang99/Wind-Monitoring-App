@@ -7,18 +7,46 @@ import json
 from PIL import ImageTk, Image
 import ctypes, os, sys
 from collections import Counter
+import threading
+from googleapiclient.discovery import build
 
 # Add the parent directory ('NCC Automations') to the Python path
 # This allows us to import the 'PythonTools' package from there.
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
-from PythonTools import SITES_CONFIG
+from PythonTools import SITES_CONFIG, get_google_credentials
 
-### IDEAS TO BETTER THE PROCESS ###
-# Add a function to input the weather to the POD file
-# Later on I can design the Maintenance Manager their own Weather App. 
 
-### END ###
+POD_SHEET_ID = "1JJuRhdVz5kirThENxUkCup5zwCvmZM9Rc9Tw65U9rRw"
+regions = {
+    "NC Local Region":        {"Warbler", "CDIA", "Violet"},
+    "NC North Region":        {"Hayes", "Longleaf Pine"},
+    "NC Piedmont Region":     {"Washington", "Thunderhead"},
+    "NC Raleigh Region":      {"Cougar", "Wellons", "Williams"},
+    "NC Fayetteville Region": {"Harrison", "Van Buren", "Gray Fox", "Holly Swamp", "Elk"},
+    "NC Eastern Region":      {"Conetoe", "Wayne I", "Wayne II", "Wayne III", "Harding", "PG", "Freight Line", "Duplin", "Hickory"},
+    "SC Tip Region":          {"Bluebird"},
+    "SC Piedmont Region":     {"Hickson", "Ogburn", "McLean", "Shorthorn"},
+    "Darlington Region":      {"Bishopville II", "Jefferson", "Marshall", "Tedder", "Whitehall"},
+    "SC Coastal Region":      {"Cherry", "Cardinal", "Sunflower", "Whitetail"},
+    "Georgia Region":         {"Bulloch 1A", "Bulloch 1B", "Richmond", "Lily"},
+    "Georgia Mainland Region":{"Upson"},
+}
+
+service_tech = {
+    "NC Local Region":        "Isaac Million",
+    "NC North Region":        "Isaac Million",
+    "NC Piedmont Region":     "Isaac Million",
+    "NC Raleigh Region":      "Jon Wieber",
+    "NC Fayetteville Region": "Thorne Locklear",
+    "NC Eastern Region":      "Jon Wieber/Thorne Locklear",
+    "SC Tip Region":          "Isaac Million",
+    "SC Piedmont Region":     "Parker Wilson",
+    "Darlington Region":      "Parker Wilson",
+    "SC Coastal Region":      "Parker Wilson",
+    "Georgia Region":         "Zach Duggan",
+    "Georgia Mainland Region":"Zach Duggan",
+}
 
 class SolarSite:
     def __init__(self, name, var_name, lat, lon, localx, localy, has_tracker):
@@ -89,6 +117,7 @@ ICY_BLUE = '#ADD8E6'           # LightBlue, for frost
 SNOW = '#ecfffd'
 LIGHT_SNOW = '#ffffff'
 HEAVY_SNOW = "#d0eceb"
+SMOKE = '#C8C8C8'              # Smoky gray
 
 
 def get_weather_color(short_forecast):
@@ -99,6 +128,10 @@ def get_weather_color(short_forecast):
     """
     # Convert forecast to lowercase for case-insensitive matching
     forecast = short_forecast.lower()
+
+    # Check for smoke anywhere in the forecast first (highest priority)
+    if 'smoke' in forecast:
+        return SMOKE
 
     # If 'then' is in the forecast, only consider the part before it
     if ' then ' in forecast:
@@ -173,7 +206,7 @@ guststowspd = 40
 
 site_data_dict = {}
 
-def get_wind_speed(site_obj):
+def get_wind_speed(site_obj, prev_weather_colors=None):
     gust1 = gust2 = gust3 = gust4 = spd1 = spd2 = spd3 = spd4 = None
     weather_color = 'pink'
     weather_data_response = site_obj.make_windapi_request()
@@ -197,7 +230,7 @@ def get_wind_speed(site_obj):
 
                 
                 with open(f"G:\\Shared drives\\O&M\\NCC Automations\\Daily Automations\\Weather Data\\{site_obj.name} Weather Forecast.txt", "w") as file:
-                    file.write(f"{period_name:<18} {period['detailedForecast']}")
+                    file.write(f"{dt.datetime.now()}\n{period_name:<18} {period['detailedForecast']}")
             else:
                 with open(f"G:\\Shared drives\\O&M\\NCC Automations\\Daily Automations\\Weather Data\\{site_obj.name} Weather Forecast.txt", "a") as file:
                     file.write(f"\n{period_name:<18} {period['detailedForecast']}")
@@ -240,7 +273,9 @@ def get_wind_speed(site_obj):
         gust2 = "N/A"
         gust3 = "N/A"
         gust4 = "N/A"
-  
+        if prev_weather_colors and site_obj.name in prev_weather_colors:
+            weather_color = prev_weather_colors[site_obj.name]
+
     site_data_dict[site_obj.name] = [spd1, spd2, spd3, spd4, gust1, gust2, gust3, gust4, weather_color]
 
 
@@ -316,6 +351,314 @@ def generate_regional_summary():
         
     messagebox.showinfo("7-Day Regional Forecast", final_text)
 
+def _parse_sheet_date(date_str):
+    s = date_str.strip().split(' ')[0]
+    parts = re.split(r'[/\-]', s)
+    if len(parts) == 3:
+        try:
+            if len(parts[0]) == 4:
+                return dt.date(int(parts[0]), int(parts[1]), int(parts[2]))
+            else:
+                year = int(parts[2])
+                if year < 100:
+                    year += 2000
+                return dt.date(year, int(parts[0]), int(parts[1]))
+        except Exception:
+            pass
+    return None
+
+
+def get_site_forecast_for_date(site_obj, target_date):
+    response = site_obj.make_windapi_request()
+    if not response or response.status_code != 200:
+        return None
+    periods = response.json().get('properties', {}).get('periods', [])
+    for period in periods:
+        try:
+            period_date = dt.datetime.fromisoformat(period['startTime']).date()
+        except Exception:
+            continue
+        if period_date == target_date and period.get('isDaytime', True):
+            speed_match = re.search(r'(\d+) mph', period.get('windSpeed', ''))
+            wind_spd = speed_match.group(1) if speed_match else "N/A"
+            gust_match = re.search(r'gusts as high as (\d+) mph', period.get('detailedForecast', ''))
+            parts = [period.get('shortForecast', 'N/A'), f"Wind: {wind_spd} mph"]
+            if gust_match:
+                parts.append(f"Gusts: {gust_match.group(1)} mph")
+            return ", ".join(parts)
+    return None
+
+
+def write_pod_weather():
+    def _run():
+        try:
+            start_date = dt.date.today()
+            end_date = dt.date.today() + dt.timedelta(days=7)
+            tabs_to_check = sorted({f"Wk {start_date.isocalendar()[1]}", f"Wk {end_date.isocalendar()[1]}"})
+            print(f"[POD Weather] Date range: {start_date} to {end_date} | Tabs to check: {tabs_to_check}")
+
+            creds = get_google_credentials()
+            service = build('sheets', 'v4', credentials=creds)
+
+            meta = service.spreadsheets().get(spreadsheetId=POD_SHEET_ID).execute()
+            tab_names = [s['properties']['title'] for s in meta['sheets']]
+            print(f"[POD Weather] Tabs found: {tab_names}")
+
+            site_lookup = {s.name: s for s in site_objects}
+            total_updates = 0
+
+            for sheet_tab in tabs_to_check:
+                if sheet_tab not in tab_names:
+                    print(f"[POD Weather] Tab '{sheet_tab}' not found, skipping.")
+                    continue
+
+                result = service.spreadsheets().values().get(
+                    spreadsheetId=POD_SHEET_ID,
+                    range=f"'{sheet_tab}'!B1:F500"
+                ).execute()
+                rows = result.get('values', [])
+                print(f"[POD Weather] Tab '{sheet_tab}': {len(rows)} rows read")
+
+                updates = []
+                current_section_date = None
+
+                for row_idx, row in enumerate(rows):
+                    date_f = row[4].strip() if len(row) > 4 else ""
+
+                    if date_f:
+                        parsed = _parse_sheet_date(date_f)
+                        if parsed:
+                            current_section_date = parsed
+                            print(f"[POD Weather] Row {row_idx + 1}: New section date -> {current_section_date}")
+                            continue  # Confirmed date header row, skip
+                        # F has content but isn't a date — still read B and D below
+
+                    if current_section_date is None or not (start_date <= current_section_date <= end_date):
+                        continue
+
+                    site_b = row[0].strip() if len(row) > 0 else ""
+                    site_d = row[2].strip() if len(row) > 2 else ""
+                    print(f"[POD Weather] Row {row_idx + 1} (section {current_section_date}): B='{site_b}' D='{site_d}'")
+
+                    site_b_obj = site_lookup.get(site_b)
+                    site_d_obj = site_lookup.get(site_d)
+                    print(f"[POD Weather]   Site B '{site_b}': {'FOUND' if site_b_obj else 'not found'}")
+                    print(f"[POD Weather]   Site D '{site_d}': {'FOUND' if site_d_obj else 'not found'}")
+                    if not site_b_obj and not site_d_obj:
+                        continue
+
+                    b_weather = get_site_forecast_for_date(site_b_obj, current_section_date) if site_b_obj else ""
+                    d_weather = get_site_forecast_for_date(site_d_obj, current_section_date) if site_d_obj else ""
+                    print(f"[POD Weather]   B weather: {b_weather}")
+                    print(f"[POD Weather]   D weather: {d_weather}")
+
+                    if not b_weather and not d_weather:
+                        continue
+
+                    updates.append({
+                        'range': f"'{sheet_tab}'!H{row_idx + 1}:K{row_idx + 1}",
+                        'values': [[
+                            site_b if b_weather else "", b_weather or "",
+                            site_d if d_weather else "", d_weather or ""
+                        ]]
+                    })
+                    print(f"[POD Weather]   Queued write to {sheet_tab}!H{row_idx + 1}:K{row_idx + 1}")
+
+                if updates:
+                    service.spreadsheets().values().batchUpdate(
+                        spreadsheetId=POD_SHEET_ID,
+                        body={'valueInputOption': 'USER_ENTERED', 'data': updates}
+                    ).execute()
+                    total_updates += len(updates)
+                    print(f"[POD Weather] Wrote {len(updates)} row(s) to '{sheet_tab}'")
+
+            if total_updates:
+                messagebox.showinfo("POD Weather", f"Updated {total_updates} row(s) across {len(tabs_to_check)} tab(s).")
+            else:
+                messagebox.showinfo("POD Weather", f"No matching rows found for {start_date.strftime('%m/%d/%Y')} – {end_date.strftime('%m/%d/%Y')}.")
+
+        except Exception as e:
+            messagebox.showerror("POD Weather", f"Error: {e}")
+            print(f"POD weather error: {e}")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def write_forecast_sheet():
+    def _run():
+        try:
+            today = dt.date.today()
+            forecast_dates = [today + dt.timedelta(days=i) for i in range(7)]
+            NUM_COLS = 8  # Col A (site) + 7 day columns
+
+            # Pre-fetch all site forecasts keyed by site name
+            site_forecasts = {}
+            for site_obj in site_objects:
+                response = site_obj.make_windapi_request()
+                if response and response.status_code == 200:
+                    periods = response.json().get('properties', {}).get('periods', [])
+                    date_fc = {}
+                    for period in periods:
+                        try:
+                            period_date = dt.datetime.fromisoformat(period['startTime']).date()
+                        except Exception:
+                            continue
+                        if period.get('isDaytime', True) and period_date not in date_fc:
+                            speed_match = re.search(r'(\d+) mph', period.get('windSpeed', ''))
+                            wind_spd = speed_match.group(1) if speed_match else "N/A"
+                            gust_match = re.search(r'gusts as high as (\d+) mph', period.get('detailedForecast', ''))
+                            short_fc = period.get('shortForecast', 'N/A')
+                            parts = [short_fc, f"Wind: {wind_spd} mph"]
+                            if gust_match:
+                                parts.append(f"Gusts: {gust_match.group(1)} mph")
+                            date_fc[period_date] = (", ".join(parts), short_fc)
+                    site_forecasts[site_obj.name] = date_fc
+                else:
+                    site_forecasts[site_obj.name] = None
+
+            # Build rows grouped by region; track formatting targets
+            header_row = ["Site"] + [d.strftime("%a %m/%d") for d in forecast_dates]
+            rows = [header_row]
+            cell_colors = {}       # (row_idx, col_idx) -> hex color
+            region_header_rows = []  # row indices of region label rows
+            region_ranges = []       # (start_row_idx, end_row_idx) exclusive, for border
+
+            for region_name, site_names in regions.items():
+                region_start = len(rows)
+                rows.append([region_name, service_tech.get(region_name, "")] + [""] * 6)
+                region_header_rows.append(len(rows) - 1)
+
+                for site_obj in (s for s in site_objects if s.name in site_names):
+                    row_idx = len(rows)
+                    row_data = [site_obj.name]
+                    fc_data = site_forecasts.get(site_obj.name)
+                    if fc_data:
+                        for col_idx, d in enumerate(forecast_dates, start=1):
+                            if d in fc_data:
+                                display, short_fc = fc_data[d]
+                                row_data.append(display)
+                                cell_colors[(row_idx, col_idx)] = get_weather_color(short_fc)
+                            else:
+                                row_data.append("N/A")
+                    else:
+                        row_data.extend(["N/A"] * 7)
+                    rows.append(row_data)
+
+                region_ranges.append((region_start, len(rows)))
+
+            # Spacing row + color legend
+            rows.append([""] * NUM_COLS)
+
+            legend_entries = [
+                ("Sunny / Clear",          SUNNY),
+                ("Mostly Sunny",           MOSTLY_SUNNY),
+                ("Partly Sunny",           PARTLY_SUNNY),
+                ("Partly Cloudy / Fog",    PARTLY_CLOUDY),
+                ("Mostly Cloudy",          MOSTLY_CLOUDY),
+                ("Frost",                  ICY_BLUE),
+                ("Slight Chance Rain",     SLIGHT_CHANCE_RAIN),
+                ("Chance of Rain",         CHANCE_RAIN),
+                ("Rain Likely",            RAIN_LIKELY),
+                ("Thunderstorms",          HEAVY_THUNDERSTORMS),
+                ("Snow",                   SNOW),
+                ("Heavy Snow",             HEAVY_SNOW),
+                ("Smoke",                  SMOKE),
+            ]
+
+            legend_header_row = len(rows)
+            rows.append(["Legend"] + [""] * (NUM_COLS - 1))
+            region_header_rows.append(legend_header_row)
+
+            for label, color in legend_entries:
+                row_idx = len(rows)
+                rows.append([label, ""] + [""] * (NUM_COLS - 2))
+                cell_colors[(row_idx, 1)] = color
+
+            # Connect and get/create the sheet tab
+            creds = get_google_credentials()
+            service = build('sheets', 'v4', credentials=creds)
+
+            meta = service.spreadsheets().get(spreadsheetId=POD_SHEET_ID).execute()
+            tab_name = "Weather Forecast"
+            existing_sheets = meta['sheets']
+            existing_names = [s['properties']['title'] for s in existing_sheets]
+
+            if tab_name not in existing_names:
+                add_resp = service.spreadsheets().batchUpdate(
+                    spreadsheetId=POD_SHEET_ID,
+                    body={'requests': [{'addSheet': {'properties': {'title': tab_name}}}]}
+                ).execute()
+                sheet_id = add_resp['replies'][0]['addSheet']['properties']['sheetId']
+            else:
+                sheet_id = next(s['properties']['sheetId'] for s in existing_sheets if s['properties']['title'] == tab_name)
+
+            service.spreadsheets().values().clear(
+                spreadsheetId=POD_SHEET_ID, range=f"'{tab_name}'!A:Z"
+            ).execute()
+            service.spreadsheets().values().update(
+                spreadsheetId=POD_SHEET_ID,
+                range=f"'{tab_name}'!A1",
+                valueInputOption='USER_ENTERED',
+                body={'values': rows}
+            ).execute()
+
+            # --- Formatting ---
+            def hex_to_rgb(hex_color):
+                h = hex_color.lstrip('#')
+                return int(h[0:2], 16) / 255.0, int(h[2:4], 16) / 255.0, int(h[4:6], 16) / 255.0
+
+            BLACK = {"red": 0.0, "green": 0.0, "blue": 0.0}
+            MEDIUM = {"style": "SOLID_MEDIUM", "color": BLACK}
+            format_requests = []
+
+            # Weather cell background colors
+            for (row_idx, col_idx), hex_color in cell_colors.items():
+                r, g, b = hex_to_rgb(hex_color)
+                format_requests.append({"repeatCell": {
+                    "range": {"sheetId": sheet_id,
+                               "startRowIndex": row_idx, "endRowIndex": row_idx + 1,
+                               "startColumnIndex": col_idx, "endColumnIndex": col_idx + 1},
+                    "cell": {"userEnteredFormat": {"backgroundColor": {"red": r, "green": g, "blue": b}}},
+                    "fields": "userEnteredFormat.backgroundColor"
+                }})
+
+            # Region header rows: gray background + bold text spanning all columns
+            for row_idx in region_header_rows:
+                format_requests.append({"repeatCell": {
+                    "range": {"sheetId": sheet_id,
+                               "startRowIndex": row_idx, "endRowIndex": row_idx + 1,
+                               "startColumnIndex": 0, "endColumnIndex": NUM_COLS},
+                    "cell": {"userEnteredFormat": {
+                        "backgroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
+                        "textFormat": {"bold": True}
+                    }},
+                    "fields": "userEnteredFormat.backgroundColor,userEnteredFormat.textFormat.bold"
+                }})
+
+            # Solid medium border box around each region block
+            for start_row, end_row in region_ranges:
+                format_requests.append({"updateBorders": {
+                    "range": {"sheetId": sheet_id,
+                               "startRowIndex": start_row, "endRowIndex": end_row,
+                               "startColumnIndex": 0, "endColumnIndex": NUM_COLS},
+                    "top": MEDIUM, "bottom": MEDIUM, "left": MEDIUM, "right": MEDIUM
+                }})
+
+            if format_requests:
+                service.spreadsheets().batchUpdate(
+                    spreadsheetId=POD_SHEET_ID,
+                    body={'requests': format_requests}
+                ).execute()
+
+            messagebox.showinfo("Weather Forecast", f"Forecast table updated for {len(site_objects)} sites across {len(regions)} regions.")
+
+        except Exception as e:
+            messagebox.showerror("Weather Forecast", f"Error: {e}")
+            print(f"Forecast sheet error: {e}")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def update_gui(site_obj):
     site = site_obj.name
     var = site_obj.var_name
@@ -361,9 +704,10 @@ def update_gui(site_obj):
 
 
 def get_data_then_update_gui():
+    prev_weather_colors = {site: data[8] for site, data in site_data_dict.items()}
     globals()['site_data_dict'] = {}
     for site_obj in site_objects:
-        get_wind_speed(site_obj)
+        get_wind_speed(site_obj, prev_weather_colors)
 
     for site_obj in site_objects:
         update_gui(site_obj)
@@ -403,6 +747,13 @@ def load_cb_states():
             print(f"Error loading checkbox states: {e}")
 
 
+
+
+
+
+
+
+
 myappid = 'NCC.Wind.Monitor.GUI'
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
@@ -416,6 +767,10 @@ map_tk = ImageTk.PhotoImage(image_map)
 
 maplbl = Label(root, image=map_tk)
 maplbl.place(x=0, y=0, relwidth=1, relheight=1)
+
+# DEV BUTTON - remove when confirmed working
+dev_pod_butt = Button(root, text="DEV: Update POD Weather", command=lambda: [write_pod_weather(), write_forecast_sheet()], bg='orange', font=('Arial', 10, 'bold'))
+dev_pod_butt.place(x=5, y=5)
 
 dataFrame1 = Frame(root)
 dataFrame1.place(x=1685, y=490)
@@ -449,6 +804,7 @@ update_butt.pack(fill='x')
 #Regional Forecast Button
 regional_butt = Button(legend, text="7-Day Regional Forecast", command=generate_regional_summary, bg='light blue')
 regional_butt.pack(fill='x', pady=2)
+
 
 site_objects = []
 for site_name, data in SITES_CONFIG.items():
@@ -520,6 +876,8 @@ for site_obj in site_objects:
 
 
 load_cb_states()
-get_data_then_update_gui()  
+get_data_then_update_gui()
+write_pod_weather()
+write_forecast_sheet()
 root.mainloop()
   
